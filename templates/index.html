@@ -40,6 +40,68 @@
             --red-700: #A01F1F;
             --red-500: #B04040;
             --red-100: #FCDFDF;
+            /* ============================================================
+               TWO-AXIS STATUS GRAMMAR  (SprintZero design rule)
+
+               These are two INDEPENDENT axes. Do not merge them, and do not
+               reuse one axis's tokens for the other. Conflating them is what
+               made a WEAK verdict read as a failure, which is wrong: weak
+               evidence surfaced by the QA layer is the system working.
+
+               AXIS 1 - EVIDENCE STRENGTH (strong / uncertain / weak)
+                 A measurement, not a judgement. Rendered on a NEUTRAL slate
+                 ramp that varies by DEPTH OF INK, never by hue. Strong = dense
+                 and dark (more signal). Weak = faint (less signal). No red,
+                 no green, ever.
+
+               AXIS 2 - QA STATUS (passed / failed)
+                 A gate decision, and the ONLY axis permitted semantic colour.
+                 Green and red belong here and nowhere else in the pane.
+
+               AXIS 3 is not a status axis: --attention-* is advisory chrome
+               for gap flags, which are neither an evidence measurement nor a
+               QA decision.
+               ============================================================ */
+
+            /* AXIS 1 - Evidence strength. NEUTRAL. Never semantic. */
+            --strength-strong-bg-a: #E9EEF4;
+            --strength-strong-bg-b: #DCE4EE;
+            --strength-strong-ink: #0F172A;
+            --strength-strong-fill: #1B3A5C;
+            --strength-moderate-bg-a: #F1F4F8;
+            --strength-moderate-bg-b: #E7ECF3;
+            --strength-moderate-ink: #475467;
+            --strength-moderate-fill: #6B7280;
+            --strength-weak-bg-a: #F8FAFC;
+            --strength-weak-bg-b: #F1F4F8;
+            --strength-weak-ink: #5C6573;
+            --strength-weak-fill: #B0B7C2;
+
+            /* AXIS 2 - QA status. SEMANTIC. Reserved for the gate. */
+            --qa-pass-bg-a: #F0F7F2;
+            --qa-pass-bg-b: #E5F2EA;
+            --qa-pass-ink: #1E7A47;
+            --qa-pass-soft: #DDF0E4;
+            --qa-fail-bg-a: #FEF2F2;
+            --qa-fail-bg-b: #FCDFDF;
+            --qa-fail-ink: #A01F1F;
+            --qa-fail-soft: #FCDFDF;
+            --qa-fail-rule: #E8A0A0;
+            /* Degraded failure: QA blocked the verdict but gave no reason.
+               Must NOT look like a substantive failure. */
+            --qa-degraded-bg-a: #F6F7F9;
+            --qa-degraded-bg-b: #EDEFF3;
+            --qa-degraded-ink: #5C6573;
+            --qa-note-soft: #FFEFC9;
+            --qa-note-ink: #8B5A00;
+
+            /* Advisory chrome - gap flags. Neither status axis. */
+            --attention-bg-a: #FFFAEB;
+            --attention-bg-b: #FFF5D9;
+            --attention-line: #F5DDA0;
+            --attention-ink: #8B5A00;
+            --attention-ink-soft: #B07800;
+
             /* Neutrals */
             --ink-900: #0F172A;
             --ink-800: #1A2332;
@@ -398,9 +460,10 @@
             padding: 22px 26px;
             border-bottom: 1px solid var(--line-200);
         }
-        .verdict-banner.STRONG { background: linear-gradient(180deg, #F0F7F2 0%, #E5F2EA 100%); }
-        .verdict-banner.WEAK { background: linear-gradient(180deg, #FEF2F2 0%, #FCDFDF 100%); }
-        .verdict-banner.UNCERTAIN { background: linear-gradient(180deg, #FFFAEB 0%, #FFEFC9 100%); }
+        /* AXIS 1 - evidence strength. Neutral ramp: depth of ink, not hue. */
+        .verdict-banner.STRONG { background: linear-gradient(180deg, var(--strength-strong-bg-a) 0%, var(--strength-strong-bg-b) 100%); }
+        .verdict-banner.UNCERTAIN { background: linear-gradient(180deg, var(--strength-moderate-bg-a) 0%, var(--strength-moderate-bg-b) 100%); }
+        .verdict-banner.WEAK { background: linear-gradient(180deg, var(--strength-weak-bg-a) 0%, var(--strength-weak-bg-b) 100%); }
         .verdict-label {
             font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
             color: var(--ink-500); font-weight: 700; margin-bottom: 8px;
@@ -409,9 +472,9 @@
             font-size: 36px; font-weight: 800;
             letter-spacing: -0.025em; line-height: 1;
         }
-        .classification.STRONG { color: var(--green-700); }
-        .classification.WEAK { color: var(--red-700); }
-        .classification.UNCERTAIN { color: var(--amber-700); }
+        .classification.STRONG { color: var(--strength-strong-ink); font-weight: 800; }
+        .classification.UNCERTAIN { color: var(--strength-moderate-ink); font-weight: 750; }
+        .classification.WEAK { color: var(--strength-weak-ink); font-weight: 700; }
         .confidence-row {
             display: flex; align-items: center; gap: 12px;
             margin-top: 12px; font-size: 12px; color: var(--ink-500);
@@ -430,9 +493,9 @@
             border-radius: var(--radius-full);
             transition: width 0.5s ease;
         }
-        .confidence-fill.STRONG { background: var(--green-500); }
-        .confidence-fill.UNCERTAIN { background: var(--amber-500); }
-        .confidence-fill.WEAK { background: var(--red-500); }
+        .confidence-fill.STRONG { background: var(--strength-strong-fill); }
+        .confidence-fill.UNCERTAIN { background: var(--strength-moderate-fill); }
+        .confidence-fill.WEAK { background: var(--strength-weak-fill); }
         .verdict-summary { margin-top: 14px; font-size: 14px; color: var(--ink-800); line-height: 1.55; }
 
         /* Spine cards */
@@ -490,10 +553,10 @@
         .evidence-item { margin-bottom: 8px; font-size: 13px; line-height: 1.55; }
 
         /* Gap flags card: amber even when collapsed */
-        .spine-card-gaps { background: linear-gradient(180deg, #FFFAEB 0%, #FFF5D9 100%); border-color: #F5DDA0; }
+        .spine-card-gaps { background: linear-gradient(180deg, var(--attention-bg-a) 0%, var(--attention-bg-b) 100%); border-color: var(--attention-line); }
         .spine-card-gaps:hover { border-color: #ECD080; }
-        .spine-card-gaps > summary .card-title { color: var(--amber-700); }
-        .spine-card-gaps > summary .card-summary { color: var(--amber-500); }
+        .spine-card-gaps > summary .card-title { color: var(--attention-ink); }
+        .spine-card-gaps > summary .card-summary { color: var(--attention-ink-soft); }
         .spine-card-gaps > summary:hover { background: rgba(255, 239, 201, 0.5); }
         .spine-card-gaps[open] > summary { background: #FFF1D0; }
 
@@ -515,17 +578,21 @@
         /* Agent 2 surface */
         .agent2-surface { border-top: 3px solid var(--violet-500); }
         .qa-stamp-large { padding: 22px 26px; border-bottom: 1px solid var(--line-200); }
-        .qa-stamp-large.QA_PASSED { background: linear-gradient(180deg, #F0F7F2 0%, #E5F2EA 100%); }
-        .qa-stamp-large.QA_FAILED { background: linear-gradient(180deg, #FEF2F2 0%, #FCDFDF 100%); }
-        .qa-stamp-large.QA_PENDING { background: linear-gradient(180deg, #FFFAEB 0%, #FFEFC9 100%); }
+        /* AXIS 2 - QA status. The only axis that may use semantic colour. */
+        .qa-stamp-large.QA_PASSED { background: linear-gradient(180deg, var(--qa-pass-bg-a) 0%, var(--qa-pass-bg-b) 100%); }
+        .qa-stamp-large.QA_FAILED { background: linear-gradient(180deg, var(--qa-fail-bg-a) 0%, var(--qa-fail-bg-b) 100%); }
+        .qa-stamp-large.QA_PENDING { background: linear-gradient(180deg, var(--attention-bg-a) 0%, var(--attention-bg-b) 100%); }
+        /* Degraded: QA_FAILED with no machine-readable reason. Neutral, not red. */
+        .qa-stamp-large.QA_FAILED.qa-degraded { background: linear-gradient(180deg, var(--qa-degraded-bg-a) 0%, var(--qa-degraded-bg-b) 100%); }
         .qa-stamp-label {
             font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
             color: var(--ink-500); font-weight: 700; margin-bottom: 8px;
         }
         .qa-stamp-value { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
-        .qa-stamp-value.QA_PASSED { color: var(--green-700); }
-        .qa-stamp-value.QA_FAILED { color: var(--red-700); }
-        .qa-stamp-value.QA_PENDING { color: var(--amber-700); }
+        .qa-stamp-value.QA_PASSED { color: var(--qa-pass-ink); }
+        .qa-stamp-value.QA_FAILED { color: var(--qa-fail-ink); }
+        .qa-stamp-value.QA_PENDING { color: var(--attention-ink); }
+        .qa-stamp-value.QA_FAILED.qa-degraded { color: var(--qa-degraded-ink); }
 
         .qa-note {
             padding: 16px 22px;
@@ -578,9 +645,9 @@
             padding: 3px 9px; border-radius: var(--radius-full);
             text-transform: uppercase;
         }
-        .check-pill-PASS { background: var(--green-100); color: var(--green-700); }
-        .check-pill-FAIL { background: var(--red-100); color: var(--red-700); }
-        .check-pill-PASS_WITH_NOTE { background: var(--amber-100); color: var(--amber-700); }
+        .check-pill-PASS { background: var(--qa-pass-soft); color: var(--qa-pass-ink); }
+        .check-pill-FAIL { background: var(--qa-fail-soft); color: var(--qa-fail-ink); }
+        .check-pill-PASS_WITH_NOTE { background: var(--qa-note-soft); color: var(--qa-note-ink); }
         .check-pill-SKIPPED { background: var(--line-100); color: var(--ink-500); }
 
         /* ==================== AGENT 2 SKELETON ==================== */
