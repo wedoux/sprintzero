@@ -1,6 +1,16 @@
-{# Right-pane content. Documentary voice (third-person). Two-surface architecture
-   for synthesis responses: Agent 1 (Research Copilot) and Agent 2 (QA Validation Agent)
-   with an unmissable visual break between them. #}
+{# Right-pane content. Documentary voice (third-person).
+
+   Layered signal-first hierarchy (WS3), replacing the flat read-through stack:
+
+     TIER 1  Decision band - QA status, verdict, and the single most
+             load-bearing signal. Always visible, never collapsed, no scroll.
+     TIER 2  Signal strip - the shape of the evidence in one line of chips.
+     TIER 3  Depth on demand - the full reasoning and evidence chain, grouped
+             rather than presented as nine peer accordions.
+
+   The two-agent narrative is preserved: a compact QA band is hoisted into
+   Tier 1 (the schema requires the stamp be prominent, not buried below the
+   evaluation), while Agent 2's full surface stays below the divider. #}
 
 {% if response_type == 'PARSE_ERROR' %}
   <div class="parse-fail">
@@ -21,14 +31,38 @@
 
 {% elif response_type in ('EVALUATION', 'GAP_FLAG') %}
 
-  {# ============ AGENT 1 SURFACE ============ #}
-  <section class="agent-surface agent1-surface">
+  {% set verdict = root.find('verdict') %}
+  {% set ec = root.find('evidence_chain') %}
+  {% set fa = root.find('falsification_attempt') %}
+  {% set tac = root.find('transfer_assumption_check') %}
+  {% set ds = root.find('decision_support') %}
+  {% set rs = root.find('reasoning_step') %}
+  {% set iue = root.find('insight_under_evaluation') %}
+  {% set bm = root.find('behavioural_mechanism') %}
+  {% set ri = root.find('reframed_insight') %}
+  {% set gaps = root.find('gap_flags') %}
+  {% set gap_list = gaps.findall('gap') if gaps is not none else [] %}
+  {% set corr_el = ec.find('corroborating_evidence') if ec is not none else none %}
+  {% set cs_el = ec.find('counter_signals') if ec is not none else none %}
+  {% set corr_units = corr_el.findall('unit') if corr_el is not none else [] %}
+  {% set cs_units = cs_el.findall('unit') if cs_el is not none else [] %}
+
+  {# ==================== TIER 1 — DECISION BAND ==================== #}
+  <section class="decision-band">
     <header class="agent-banner agent1-banner">
       <div class="agent-name">Agent 1 · Research Copilot</div>
       <div class="agent-role">primary synthesis</div>
     </header>
 
-    {% set verdict = root.find('verdict') %}
+    {# QA status, hoisted. Starts pending; the client fills it when /qa lands.
+       Schema, QA GATE: the stamp must be shown prominently, not buried. #}
+    <div id="qa-band" class="qa-band qa-band-pending">
+      <span class="qa-band-dot"></span>
+      <span class="qa-band-label">QA validation</span>
+      <span class="qa-band-value">Running…</span>
+      <span class="qa-band-hint">Verdict not committable until QA returns</span>
+    </div>
+
     {% if verdict is not none %}
       {% set cls = verdict.findtext('classification') %}
       {% set raw_score = verdict.findtext('confidence_score') %}
@@ -47,86 +81,64 @@
       </div>
     {% endif %}
 
-    <div class="spine">
-      {% set iue = root.find('insight_under_evaluation') %}
-      {% if iue is not none %}
-      <details class="spine-card">
-        <summary>
-          <span class="card-title">Insight under evaluation</span>
-          <span class="card-summary">Theme being assessed</span>
-        </summary>
-        <div class="card-body">
-          <div class="field-value">{{ iue.findtext('original_theme') }}</div>
-        </div>
-      </details>
+    {# The single most load-bearing signal, on the pass path. On QA_FAILED the
+       client's gate fragment supersedes this - required_action becomes the
+       thing that matters. Falls back through decision_support before hiding:
+       both fields are conditional in the schema. #}
+    {% if ds is not none %}
+      {% set lead = ds.findtext('decision_this_changes') or ds.findtext('decision_this_enables') %}
+      {% if lead %}
+      <div class="lead-signal" id="lead-signal">
+        <div class="lead-signal-label">What this changes</div>
+        <div class="lead-signal-body">{{ lead }}</div>
+      </div>
       {% endif %}
+    {% endif %}
+  </section>
 
-      {% set bm = root.find('behavioural_mechanism') %}
-      {% if bm is not none %}
-      <details class="spine-card">
-        <summary>
-          <span class="card-title">Behavioural mechanism</span>
-          <span class="card-summary">Behaviour · trigger · consequence</span>
-        </summary>
-        <div class="card-body">
-          <div class="field">
-            <div class="field-label">Behaviour</div>
-            <div class="field-value">{{ bm.findtext('behaviour') }}</div>
-          </div>
-          <div class="field">
-            <div class="field-label">Trigger condition</div>
-            <div class="field-value">{{ bm.findtext('trigger_condition') }}</div>
-          </div>
-          <div class="field">
-            <div class="field-label">Consequence</div>
-            <div class="field-value">{{ bm.findtext('consequence') }}</div>
-          </div>
-        </div>
-      </details>
-      {% endif %}
+  {# ==================== TIER 2 — SIGNAL STRIP ==================== #}
+  {# The shape of the evidence at a glance. Each chip jumps to its section. #}
+  <div class="signal-strip">
+    {% if ec is not none %}
+    <button class="signal-chip" data-target="card-evidence" type="button">
+      <span class="signal-chip-num">{{ corr_units|length }}</span>
+      <span class="signal-chip-label">corroborating</span>
+    </button>
+    <button class="signal-chip {{ 'signal-chip-flag' if cs_units|length else '' }}" data-target="card-evidence" type="button">
+      <span class="signal-chip-num">{{ cs_units|length }}</span>
+      <span class="signal-chip-label">counter-signal{{ '' if cs_units|length == 1 else 's' }}</span>
+    </button>
+    {% endif %}
+    {% if fa is not none and fa.findtext('falsification_result') %}
+    <button class="signal-chip" data-target="card-falsification" type="button">
+      <span class="signal-chip-label">Falsification</span>
+      <span class="signal-chip-val">{{ fa.findtext('falsification_result') }}</span>
+    </button>
+    {% endif %}
+    {% if tac is not none and tac.findtext('transfer_verdict') %}
+    <button class="signal-chip" data-target="card-transfer" type="button">
+      <span class="signal-chip-label">Transfer</span>
+      <span class="signal-chip-val">{{ tac.findtext('transfer_verdict') }}</span>
+    </button>
+    {% endif %}
+    {% if gap_list %}
+    <button class="signal-chip signal-chip-attention" data-target="card-gaps" type="button">
+      <span class="signal-chip-num">{{ gap_list|length }}</span>
+      <span class="signal-chip-label">gap{{ '' if gap_list|length == 1 else 's' }}</span>
+    </button>
+    {% endif %}
+  </div>
 
-      {% set ec = root.find('evidence_chain') %}
-      {% if ec is not none %}
-        {% set corr_el = ec.find('corroborating_evidence') %}
-        {% set cs_el = ec.find('counter_signals') %}
-        {% set corr_units = corr_el.findall('unit') if corr_el is not none else [] %}
-        {% set cs_units = cs_el.findall('unit') if cs_el is not none else [] %}
-        <details class="spine-card">
-          <summary>
-            <span class="card-title">Evidence chain</span>
-            <span class="card-summary">{{ corr_units|length }} corroborating · {{ cs_units|length }} counter-signal{{ '' if cs_units|length == 1 else 's' }}</span>
-          </summary>
-          <div class="card-body">
-            {% if corr_units %}
-            <div class="field">
-              <div class="field-label">Corroborating evidence</div>
-              {% for unit in corr_units %}
-              <div class="evidence-item"><span class="field-id">{{ unit.findtext('id') }}</span>{{ unit.findtext('signal') }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if cs_units %}
-            <div class="field">
-              <div class="field-label">Counter-signals</div>
-              {% for unit in cs_units %}
-              <div class="evidence-item"><span class="field-id">{{ unit.findtext('id') }}</span>{{ unit.findtext('signal') }}</div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% set sd = ec.findtext('source_diversity') %}
-            {% if sd %}
-            <div class="field">
-              <div class="field-label">Source diversity</div>
-              <div class="field-value">{{ sd }}</div>
-            </div>
-            {% endif %}
-          </div>
-        </details>
-      {% endif %}
+  {# ==================== TIER 3 — DEPTH ON DEMAND ==================== #}
+  <div class="spine">
 
-      {% set rs = root.find('reasoning_step') %}
+    {# ---- Group: reasoning and evidence ---- #}
+    {% if rs is not none or ec is not none or fa is not none or tac is not none or gap_list %}
+    <div class="tier3-group">
+      <div class="tier3-group-label">Reasoning &amp; evidence</div>
+
       {% if rs is not none %}
-      <details class="spine-card">
+      <details class="spine-card" id="card-reasoning">
         <summary>
           <span class="card-title">Reasoning</span>
           <span class="card-summary">Proposed · counter · committed</span>
@@ -148,9 +160,42 @@
       </details>
       {% endif %}
 
-      {% set fa = root.find('falsification_attempt') %}
+      {% if ec is not none %}
+      <details class="spine-card" id="card-evidence">
+        <summary>
+          <span class="card-title">Evidence chain</span>
+          <span class="card-summary">{{ corr_units|length }} corroborating · {{ cs_units|length }} counter-signal{{ '' if cs_units|length == 1 else 's' }}</span>
+        </summary>
+        <div class="card-body">
+          {% if corr_units %}
+          <div class="field">
+            <div class="field-label">Corroborating evidence</div>
+            {% for unit in corr_units %}
+            <div class="evidence-item"><span class="field-id">{{ unit.findtext('id') }}</span>{{ unit.findtext('signal') }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if cs_units %}
+          <div class="field">
+            <div class="field-label">Counter-signals</div>
+            {% for unit in cs_units %}
+            <div class="evidence-item"><span class="field-id">{{ unit.findtext('id') }}</span>{{ unit.findtext('signal') }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% set sd = ec.findtext('source_diversity') %}
+          {% if sd %}
+          <div class="field">
+            <div class="field-label">Source diversity</div>
+            <div class="field-value">{{ sd }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </details>
+      {% endif %}
+
       {% if fa is not none %}
-      <details class="spine-card">
+      <details class="spine-card" id="card-falsification">
         <summary>
           <span class="card-title">Falsification attempt</span>
           <span class="card-summary">{{ fa.findtext('falsification_result') or 'Ran the test' }}</span>
@@ -172,9 +217,8 @@
       </details>
       {% endif %}
 
-      {% set tac = root.find('transfer_assumption_check') %}
       {% if tac is not none %}
-      <details class="spine-card">
+      <details class="spine-card" id="card-transfer">
         <summary>
           <span class="card-title">Transfer assumption check</span>
           <span class="card-summary">{{ tac.findtext('transfer_verdict') or 'Assessed transferability' }}</span>
@@ -189,10 +233,8 @@
       </details>
       {% endif %}
 
-      {% set gaps = root.find('gap_flags') %}
-      {% set gap_list = gaps.findall('gap') if gaps is not none else [] %}
       {% if gap_list %}
-      <details class="spine-card spine-card-gaps">
+      <details class="spine-card spine-card-gaps" id="card-gaps">
         <summary>
           <span class="card-title">Gap flags</span>
           <span class="card-summary">{{ gap_list|length }} gap{{ '' if gap_list|length == 1 else 's' }} in the evidence base · needs attention</span>
@@ -202,33 +244,57 @@
           <div class="field">
             <div class="field-label">{{ gap.findtext('gap_type') }}</div>
             <div class="field-value">{{ gap.findtext('gap_description') }}</div>
-            <div class="field-value" style="margin-top: 4px; color: #6B5800;"><em>Corpus required:</em> {{ gap.findtext('corpus_required') }}</div>
+            <div class="field-value gap-corpus-required"><em>Corpus required:</em> {{ gap.findtext('corpus_required') }}</div>
           </div>
           {% endfor %}
         </div>
       </details>
       {% endif %}
+    </div>
+    {% endif %}
 
-      {% set ds = root.find('decision_support') %}
-      {% if ds is not none %}
-      <details class="spine-card">
+    {# ---- Group: framing ---- #}
+    {% if iue is not none or bm is not none or ri is not none %}
+    <div class="tier3-group">
+      <div class="tier3-group-label">Framing</div>
+
+      {% if iue is not none %}
+      <details class="spine-card" id="card-insight">
         <summary>
-          <span class="card-title">Decision support</span>
-          <span class="card-summary">What this changes and what it cannot decide</span>
+          <span class="card-title">Insight under evaluation</span>
+          <span class="card-summary">Theme being assessed</span>
         </summary>
         <div class="card-body">
-          {% set dtc = ds.findtext('decision_this_changes') %}
-          {% if dtc %}<div class="field"><div class="field-label">Decision this changes</div><div class="field-value">{{ dtc }}</div></div>{% endif %}
-          {% set dte = ds.findtext('decision_this_enables') %}
-          {% if dte %}<div class="field"><div class="field-label">Decision this enables</div><div class="field-value">{{ dte }}</div></div>{% endif %}
-          <div class="field"><div class="field-label">Decision this cannot support</div><div class="field-value">{{ ds.findtext('decision_this_cannot_support') }}</div></div>
+          <div class="field-value">{{ iue.findtext('original_theme') }}</div>
         </div>
       </details>
       {% endif %}
 
-      {% set ri = root.find('reframed_insight') %}
+      {% if bm is not none %}
+      <details class="spine-card" id="card-mechanism">
+        <summary>
+          <span class="card-title">Behavioural mechanism</span>
+          <span class="card-summary">Behaviour · trigger · consequence</span>
+        </summary>
+        <div class="card-body">
+          <div class="field">
+            <div class="field-label">Behaviour</div>
+            <div class="field-value">{{ bm.findtext('behaviour') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Trigger condition</div>
+            <div class="field-value">{{ bm.findtext('trigger_condition') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Consequence</div>
+            <div class="field-value">{{ bm.findtext('consequence') }}</div>
+          </div>
+        </div>
+      </details>
+      {% endif %}
+
       {% if ri is not none %}
-      <details class="spine-card">
+      <details class="spine-card" id="card-reframed">
         <summary>
           <span class="card-title">Reframed insight</span>
           <span class="card-summary">Proposed rewrite</span>
@@ -241,14 +307,35 @@
       </details>
       {% endif %}
     </div>
-  </section>
+    {% endif %}
+
+    {# ---- Group: decision support (full detail; the lead sits in Tier 1) ---- #}
+    {% if ds is not none %}
+    <div class="tier3-group">
+      <div class="tier3-group-label">Decision support</div>
+      <details class="spine-card" id="card-decision">
+        <summary>
+          <span class="card-title">Scope of this verdict</span>
+          <span class="card-summary">What it changes and what it cannot decide</span>
+        </summary>
+        <div class="card-body">
+          {% set dtc = ds.findtext('decision_this_changes') %}
+          {% if dtc %}<div class="field"><div class="field-label">Decision this changes</div><div class="field-value">{{ dtc }}</div></div>{% endif %}
+          {% set dte = ds.findtext('decision_this_enables') %}
+          {% if dte %}<div class="field"><div class="field-label">Decision this enables</div><div class="field-value">{{ dte }}</div></div>{% endif %}
+          <div class="field"><div class="field-label">Decision this cannot support</div><div class="field-value">{{ ds.findtext('decision_this_cannot_support') }}</div></div>
+        </div>
+      </details>
+    </div>
+    {% endif %}
+  </div>
 
   {# ============ AGENT 2 REGION =============================================
      Empty by default for fresh /ask responses — JS injects qa_skeleton when
      Phase 2 starts (the visual "handoff to QA" signal). The skeleton is then
      swapped for the real qa_surface when /qa returns.
-     If a response somehow arrives with qa_review already on root (e.g. a
-     re-render path), we render the real surface directly. #}
+     The full Agent 2 surface stays here, below the divider, so the handoff
+     narrative survives; only the compact status band is hoisted to Tier 1. #}
   <div id="qa-region">
     {% set qr = root.find('qa_review') %}
     {% if qr is not none %}

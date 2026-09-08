@@ -414,6 +414,132 @@
         .empty-pane-sub { font-size: 13px; color: var(--ink-400); line-height: 1.6; max-width: 320px; }
 
         /* Agent surface */
+        /* ==================== TIER 1 — DECISION BAND (WS3) ====================
+           Always visible, never collapsed. Carries the QA gate, the verdict,
+           and the one signal that most changes what the reader does next. */
+        .decision-band {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--line-200);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        /* QA status, hoisted out of Agent 2's surface. The schema requires the
+           stamp be prominent rather than buried below the evaluation; the full
+           Agent 2 surface still lives below the divider. */
+        .qa-band {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px 22px;
+            font-size: 12px;
+            border-bottom: 1px solid var(--line-200);
+            transition: background 0.25s ease;
+        }
+        .qa-band-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            flex-shrink: 0; background: var(--ink-300);
+        }
+        .qa-band-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+            font-weight: 700; color: var(--ink-500);
+        }
+        .qa-band-value { font-weight: 700; letter-spacing: -0.005em; }
+        .qa-band-hint {
+            margin-left: auto; font-size: 11px; color: var(--ink-400);
+            text-align: right;
+        }
+        .qa-band-pending { background: var(--bg-50); }
+        .qa-band-pending .qa-band-dot { animation: qa-band-pulse 1.4s ease-in-out infinite; }
+        .qa-band-pending .qa-band-value { color: var(--ink-500); }
+        @keyframes qa-band-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+        .qa-band-passed { background: linear-gradient(180deg, var(--qa-pass-bg-a) 0%, var(--qa-pass-bg-b) 100%); }
+        .qa-band-passed .qa-band-dot { background: var(--qa-pass-ink); }
+        .qa-band-passed .qa-band-value { color: var(--qa-pass-ink); }
+
+        .qa-band-failed { background: linear-gradient(180deg, var(--qa-fail-bg-a) 0%, var(--qa-fail-bg-b) 100%); }
+        .qa-band-failed .qa-band-dot { background: var(--qa-fail-ink); }
+        .qa-band-failed .qa-band-value { color: var(--qa-fail-ink); }
+
+        .qa-band-degraded { background: linear-gradient(180deg, var(--qa-degraded-bg-a) 0%, var(--qa-degraded-bg-b) 100%); }
+        .qa-band-degraded .qa-band-dot { background: var(--ink-400); }
+        .qa-band-degraded .qa-band-value { color: var(--qa-degraded-ink); }
+
+        .qa-band-unavailable { background: var(--bg-50); }
+        .qa-band-unavailable .qa-band-value { color: var(--ink-500); }
+
+        /* The single most load-bearing signal. Sits inside Tier 1 on the pass
+           path; on QA_FAILED the gate fragment above it is what matters. */
+        .lead-signal {
+            padding: 15px 26px 17px 26px;
+            border-top: 1px solid var(--line-100);
+            background: var(--bg-50);
+        }
+        .lead-signal-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--ink-500); font-weight: 700; margin-bottom: 6px;
+        }
+        .lead-signal-body {
+            font-size: 13.5px; line-height: 1.6; color: var(--ink-800);
+            max-width: 72ch;
+        }
+        .decision-band.qa-invalidated-parent .lead-signal { opacity: 0.55; }
+
+        /* ==================== TIER 2 — SIGNAL STRIP ====================
+           The shape of the evidence in one scannable line. Each chip is a
+           jump into its Tier 3 card. */
+        .signal-strip {
+            display: flex; flex-wrap: wrap; gap: 7px;
+            margin: 0 0 14px 0;
+        }
+        .signal-chip {
+            display: inline-flex; align-items: baseline; gap: 6px;
+            padding: 7px 12px;
+            background: white;
+            border: 1px solid var(--line-200);
+            border-radius: var(--radius-full);
+            font-family: inherit; font-size: 12px;
+            color: var(--ink-600);
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+        }
+        .signal-chip:hover {
+            border-color: var(--navy-300);
+            box-shadow: var(--shadow-sm);
+        }
+        .signal-chip:active { transform: translateY(1px); }
+        .signal-chip-num { font-weight: 800; font-size: 14px; color: var(--ink-900); }
+        .signal-chip-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+            font-weight: 700; color: var(--ink-500);
+        }
+        .signal-chip-val { font-weight: 700; font-size: 11.5px; color: var(--ink-800); }
+        .signal-chip-flag .signal-chip-num { color: var(--attention-ink); }
+        .signal-chip-attention {
+            background: linear-gradient(180deg, var(--attention-bg-a) 0%, var(--attention-bg-b) 100%);
+            border-color: var(--attention-line);
+        }
+        .signal-chip-attention .signal-chip-num,
+        .signal-chip-attention .signal-chip-label { color: var(--attention-ink); }
+
+        /* Momentary highlight when a chip jumps you to its card. */
+        @keyframes card-flash {
+            0% { box-shadow: 0 0 0 0 rgba(46, 109, 164, 0.35); }
+            100% { box-shadow: 0 0 0 7px rgba(46, 109, 164, 0); }
+        }
+        .spine-card.card-targeted { animation: card-flash 0.85s ease-out; border-color: var(--navy-300); }
+
+        /* ==================== TIER 3 — DEPTH ON DEMAND ====================
+           Grouped, not nine peer accordions. */
+        .tier3-group { margin-bottom: 16px; }
+        .tier3-group:last-child { margin-bottom: 0; }
+        .tier3-group-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.11em;
+            font-weight: 700; color: var(--ink-400);
+            padding: 0 4px 7px 4px;
+        }
+
         .agent-surface {
             background: white;
             border-radius: var(--radius-lg);
@@ -575,7 +701,7 @@
         }
 
         /* Spine cards */
-        .spine { padding: 14px 22px 18px 22px; }
+        .spine { padding: 0; }
         .spine-card {
             background: white;
             border: 1px solid var(--line-200);
@@ -629,6 +755,7 @@
         .evidence-item { margin-bottom: 8px; font-size: 13px; line-height: 1.55; }
 
         /* Gap flags card: amber even when collapsed */
+        .gap-corpus-required { margin-top: 4px; color: #6B5800; }
         .spine-card-gaps { background: linear-gradient(180deg, var(--attention-bg-a) 0%, var(--attention-bg-b) 100%); border-color: var(--attention-line); }
         .spine-card-gaps:hover { border-color: #ECD080; }
         .spine-card-gaps > summary .card-title { color: var(--attention-ink); }
@@ -798,6 +925,7 @@
         .skeleton-bar-confidence-num { height: 12px; width: 96px; margin-bottom: 0; }
         .skeleton-bar-confidence-track { height: 6px; flex: 0 1 180px; margin-bottom: 0; border-radius: 999px; }
         .agent1-skeleton-summary { margin-top: 14px; }
+        .skeleton-bar-chip { width: 104px; height: 30px; border-radius: var(--radius-full); }
         .agent1-skeleton-row {
             background: white;
             border: 1px solid var(--line-200);
@@ -1119,12 +1247,55 @@ async function runPhase(log, paced, gated, paceMs, fetchPromise) {
     return result;
 }
 
+// Tier 1 QA band. Starts pending at /ask; resolved here when /qa lands.
+function setQaBand(state, value, hint) {
+    const band = document.getElementById('qa-band');
+    if (!band) return;
+    band.className = 'qa-band qa-band-' + state;
+    const v = band.querySelector('.qa-band-value');
+    const h = band.querySelector('.qa-band-hint');
+    if (v) v.textContent = value;
+    if (h) h.textContent = hint || '';
+}
+
+// Tier 2 chips jump into their Tier 3 card, open it, and flash it so the
+// reader does not lose their place in a long pane.
+function wireSignalChips() {
+    document.querySelectorAll('.signal-chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            const card = document.getElementById(chip.dataset.target);
+            if (!card) return;
+            card.open = true;
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.remove('card-targeted');
+            void card.offsetWidth;  // restart the animation on repeat clicks
+            card.classList.add('card-targeted');
+        });
+    });
+}
+
 // The QA result acts on Agent 1's verdict rather than sitting beside it.
 // Patches the existing banner in place - re-rendering the pane would rebuild
 // Agent 1's spine for no reason and lose any accordion the user has opened.
 // A QA_PASSED result deliberately touches nothing.
 function applyQaGateToVerdict(qaResult) {
-    if (qaResult.qa_status !== 'QA_FAILED') return;
+    if (qaResult.qa_status === 'QA_PASSED') {
+        setQaBand('passed', 'Passed', 'Verdict validated — committable');
+        return;
+    }
+    if (qaResult.qa_status !== 'QA_FAILED') {
+        setQaBand('unavailable', qaResult.qa_status || 'Unknown', '');
+        return;
+    }
+
+    if (qaResult.qa_degraded) {
+        setQaBand('degraded', 'Incomplete', 'Verdict unvalidated — QA did not complete');
+    } else {
+        setQaBand('failed', 'Failed', 'Verdict blocked — not committable');
+    }
+
+    const band = document.querySelector('.decision-band');
+    if (band) band.classList.add('qa-invalidated-parent');
 
     const banner = document.querySelector('.verdict-banner');
     if (banner) {
@@ -1232,6 +1403,7 @@ async function submit(text) {
     if (result.right_pane_html) {
         rightPane.innerHTML = result.right_pane_html;
         rightPane.scrollTop = 0;
+        wireSignalChips();
     }
     if (result.chat_html) {
         const container = document.createElement('div');
@@ -1262,6 +1434,7 @@ async function submit(text) {
 
     const qaRegion = document.getElementById('qa-region');
     if (qaResult.error) {
+        setQaBand('unavailable', 'Unavailable', 'QA did not run — verdict unvalidated');
         if (qaRegion) {
             qaRegion.innerHTML =
                 '<div class="agent-divider"><div class="agent-divider-line"></div>' +
