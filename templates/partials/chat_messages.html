@@ -1,0 +1,65 @@
+{# Conversational system messages routed to the chat pane.
+   Voice rule: second-person addressing the researcher belongs here. #}
+
+{% if response_type == 'PARSE_ERROR' %}
+  <div class="sys-msg sys-msg-error">
+    <div class="sys-msg-label">System</div>
+    <div class="sys-msg-body">
+      The model returned output I couldn't parse. Detail and raw output are in the right pane.
+    </div>
+  </div>
+
+{% elif response_type == 'CHALLENGE' %}
+  {% set ch = root.find('process_challenge') %}
+  {% if ch is not none %}
+    <div class="sys-msg sys-msg-challenge">
+      <div class="sys-msg-label">Challenge — {{ ch.findtext('challenge_type') }}</div>
+      <div class="sys-msg-body">{{ ch.findtext('why_it_cannot_proceed') }}</div>
+    </div>
+    <div class="sys-msg sys-msg-required">
+      <div class="sys-msg-label">What is required</div>
+      <div class="sys-msg-body">{{ ch.findtext('what_is_required') }}</div>
+    </div>
+    {% set canDo = ch.findtext('what_system_can_do_now') %}
+    {% if canDo %}
+    <div class="sys-msg sys-msg-options">
+      <div class="sys-msg-label">What I can do now</div>
+      <div class="sys-msg-body">{{ canDo }}</div>
+    </div>
+    {% endif %}
+  {% endif %}
+
+{% elif response_type == 'INTAKE' %}
+  <div class="sys-msg sys-msg-challenge">
+    <div class="sys-msg-label">Project intake required</div>
+    <div class="sys-msg-body">
+      Before evaluating themes, I need a few details about this project. Right pane shows the open intake fields; please answer them in your next message.
+    </div>
+  </div>
+
+{% elif response_type in ('EVALUATION', 'GAP_FLAG') %}
+  {% set tkp = root.find('tacit_knowledge_prompt') %}
+  {% if tkp is not none %}
+    <div class="sys-msg sys-msg-tacit">
+      <div class="sys-msg-label">A question for you</div>
+      <div class="sys-msg-body">{{ tkp.findtext('prompt_text') }}</div>
+      {% set ci = tkp.findtext('confidence_impact') %}
+      {% if ci %}
+      <details class="sys-msg-detail">
+        <summary>How your answer would change the verdict</summary>
+        <div>{{ ci }}</div>
+      </details>
+      {% endif %}
+    </div>
+  {% endif %}
+  <div class="sys-msg sys-msg-done">
+    <span class="sys-msg-done-arrow">→</span>
+    Verdict ready in the right pane
+  </div>
+
+{% else %}
+  <div class="sys-msg">
+    <div class="sys-msg-label">System</div>
+    <div class="sys-msg-body">Response type: {{ response_type }}. See right pane.</div>
+  </div>
+{% endif %}

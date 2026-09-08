@@ -1,0 +1,20 @@
+{
+  "project_id": "weather-underground-redesign",
+  "project_context": {
+    "project_name": "Weather Underground iOS \u2014 Trust Investigation",
+    "project_type": "EXISTING_PRODUCT_ITERATION",
+    "research_objective": "Determine whether reported forecast inaccuracy in Weather Underground iOS reviews is a forecast-model problem or a data-freshness problem, and which engineering workstream should own the fix.",
+    "business_decisions_pending": "Engineering leadership must decide in the next sprint whether to allocate the Q3 trust-recovery budget to the forecast modelling team or to the iOS caching and refresh subsystem. Only one workstream can be funded.",
+    "prior_research_and_insights": "None on file. Treat as first-pass synthesis on the current S-001 corpus.",
+    "target_market": "US iOS users of Weather Underground who have left an App Store review in 2022 to 2024. Scope is explicitly US-only for this evaluation.",
+    "known_constraints": "Engineering capacity is committed elsewhere through end of Q2. Only one workstream can be funded in Q3.",
+    "primary_stakeholder": "Engineering lead and product lead, jointly, deciding the Q3 budget allocation.",
+    "context_completeness": "COMPLETE"
+  },
+  "query_counter": 28,
+  "project_name": "Weather Underground Redesign",
+  "display_names": {
+    "evaluation.md": "SZ Standard Evaluation",
+    "weather_underground.md": "WU AppStore Reviews"
+  }
+}

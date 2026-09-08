@@ -1,0 +1,72 @@
+{# Agent 2 surface: divider + Agent 2 banner + QA stamp + qa_note + sections.
+   Used both by right_pane.html (when qa_review already exists on the root) and
+   by the /qa endpoint when Agent 2 completes and the skeleton is swapped out.
+   Requires: root (ElementTree), qa_checks (list). #}
+{% set qr = root.find('qa_review') %}
+{% set qa_status = root.findtext('attributes/qa_status') %}
+
+<div class="agent-divider">
+  <div class="agent-divider-line"></div>
+  <div class="agent-divider-label">↓ Independent QA review ↓</div>
+  <div class="agent-divider-line"></div>
+</div>
+
+<section class="agent-surface agent2-surface qa-{{ qa_status }}">
+  <header class="agent-banner agent2-banner">
+    <div class="agent-name">Agent 2 · QA Validation Agent</div>
+    <div class="agent-role">independent review</div>
+  </header>
+
+  <div class="qa-stamp-large {{ qa_status }}">
+    <div class="qa-stamp-label">QA verdict</div>
+    <div class="qa-stamp-value {{ qa_status }}">{{ qa_status }}</div>
+  </div>
+
+  {% set stamp = qr.find('overall_qa_stamp') %}
+  {% set note = stamp.findtext('qa_note') if stamp is not none else None %}
+  {% if note %}
+  <div class="qa-note">
+    <div class="qa-note-label">QA note</div>
+    <div class="qa-note-body">{{ note }}</div>
+  </div>
+  {% endif %}
+
+  {% if qa_checks %}
+  <details class="qa-section">
+    <summary>
+      <span class="card-title">Seven checks summary</span>
+      <span class="card-summary">Individual check verdicts</span>
+    </summary>
+    <ul class="checks-list">
+      {% for c in qa_checks %}
+      <li class="check-row">
+        <span class="check-name">{{ c.name }}</span>
+        <span class="check-pill check-pill-{{ c.verdict }}">{{ c.verdict.replace('_', ' ') }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% set blocking = stamp.findtext('blocking_findings') if stamp is not none else None %}
+  {% if blocking %}
+  <details class="qa-section">
+    <summary>
+      <span class="card-title">Blocking findings</span>
+      <span class="card-summary">Issues that prevent commit</span>
+    </summary>
+    <div class="card-body"><div class="field-value">{{ blocking }}</div></div>
+  </details>
+  {% endif %}
+
+  {% set action = stamp.findtext('required_action') if stamp is not none else None %}
+  {% if action %}
+  <details class="qa-section">
+    <summary>
+      <span class="card-title">Required action</span>
+      <span class="card-summary">What the researcher must do next</span>
+    </summary>
+    <div class="card-body"><div class="field-value">{{ action }}</div></div>
+  </details>
+  {% endif %}
+</section>

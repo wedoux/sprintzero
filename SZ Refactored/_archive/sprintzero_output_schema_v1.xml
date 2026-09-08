@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SprintZero — Output Schema
+  Version 1.0 · May 2026 · Niko
+
+  PURPOSE
+  This file defines the required XML structure for every SprintZero response.
+  The AI produces this structure. The application code formats it for display.
+  These two concerns must never be mixed.
+
+  RULES
+  - Every field marked required="true" must be populated before a response is valid.
+  - Fields marked required="false" are conditionally required: if the trigger
+    condition is met, the field becomes required. Omitting it is a protocol violation.
+  - The application layer reads this schema to render output. Do not add display
+    logic here. Do not add rendering hints here. This is structure only.
+  - The AI must not invent fields not present in this schema.
+  - The AI must not omit required fields even if it judges the content to be obvious.
+-->
+
+<SprintZero_schema version="1.0">
+
+  <!--
+    ROOT ELEMENT
+    Every SprintZero response is wrapped in SprintZero_response.
+    The query_id ties the response to a specific researcher prompt.
+  -->
+
+  <SprintZero_response>
+
+    <!-- RESPONSE METADATA -->
+    <attributes required="true">
+
+      <query_id required="true">
+        <!-- Unique identifier for this response. Format: SZ-[YYYYMMDD]-[NNN] -->
+        <!-- Example: SZ-20260514-001 -->
+      </query_id>
+
+      <corpus_ids required="true">
+        <!-- Comma-separated IDs of all corpora consulted.
+             Must reference registered Registry IDs only.
+             Example: S-001, A-001, C-001 -->
+      </corpus_ids>
+
+      <framework_version required="true">
+        <!-- Version of the Framework RAG used for this evaluation.
+             Example: A-001 v1.2 -->
+      </framework_version>
+
+      <response_type required="true">
+        <!-- One of: EVALUATION | GAP_FLAG | REFUSAL | PARTIAL
+             EVALUATION  - full verdict produced, evidence base adequate
+             GAP_FLAG    - verdict produced but flagged corpus gap present
+             REFUSAL     - evidence base structurally absent, verdict refused
+             PARTIAL     - verdict produced for subset of query only -->
+      </response_type>
+
+    </attributes>
+
+    <!-- THE INSIGHT UNDER EVALUATION -->
+    <insight_under_evaluation required="true">
+
+      <original_theme required="true">
+        <!-- Exact wording of the theme or insight as the researcher stated it.
+             Do not paraphrase. Do not improve. Reproduce verbatim. -->
+      </original_theme>
+
+      <submitted_by required="false">
+        <!-- Researcher name or identifier, if provided -->
+      </submitted_by>
+
+    </insight_under_evaluation>
+
+    <!--
+      BEHAVIOURAL MECHANISM
+      Required for all EVALUATION and GAP_FLAG responses.
+      Addresses P-01 Headline Generality: surface labels are not insights.
+      Every evaluation must identify the specific behaviour, its trigger,
+      and its consequence. A verdict cannot be committed without this field.
+    -->
+    <behavioural_mechanism required="true" trigger="response_type != REFUSAL">
+
+      <behaviour required="true">
+        <!-- What is the specific user behaviour this insight describes?
+             Must name an observable action, not a sentiment or attitude.
+             BAD:  "Users distrust the app."
+             GOOD: "Users open a second weather app before committing to
+                    outdoor plans when the stakes are high." -->
+      </behaviour>
+
+      <trigger_condition required="true">
+        <!-- What causes this behaviour to occur?
+             Must be specific and falsifiable.
+             BAD:  "When they don't trust the data."
+             GOOD: "When the displayed temperature contradicts their
+                    recent physical experience of the weather." -->
+      </trigger_condition>
+
+      <consequence required="true">
+        <!-- What is the product or decision consequence of this behaviour?
+             Must connect to a product decision or engineering workstream.
+             BAD:  "Users are frustrated."
+             GOOD: "The cross-check behaviour bypasses the app's forecast
+                    entirely, making forecast model investment irrelevant
+                    to the trust problem." -->
+      </consequence>
+
+    </behavioural_mechanism>
+
+    <!-- VERDICT -->
+    <verdict required="true">
+
+      <classification required="true">
+        <!-- One of: STRONG | UNCERTAIN | WEAK
+             STRONG    - multiple corroborating sources, no unresolved
+                         contradictions, evidence directly supports theme
+             UNCERTAIN - limited evidence, single source, or conflicting
+                         signals present
+             WEAK      - theme contradicted by corpus, or evidence base
+                         insufficient to evaluate -->
+      </classification>
+
+      <confidence_score required="true">
+        <!-- Numeric score 0.00-0.95. Calculated per Framework RAG scoring rules.
+             Must reflect source diversity penalty if applicable.
+             Format: decimal to two places. Example: 0.72 -->
+      </confidence_score>
+
+      <stability_status required="true">
+        <!-- One of: STABLE | EMERGING | CONFLICTED
+             STABLE     - confidence >= 0.70, multiple sources, no contradictions
+             EMERGING   - confidence 0.35-0.69, limited corroboration
+             CONFLICTED - contradiction detected, confidence frozen -->
+      </stability_status>
+
+      <one_line_verdict required="true">
+        <!-- A single sentence stating the verdict in plain language.
+             Written for a product stakeholder, not a researcher.
+             Must be specific enough to drive a decision.
+             BAD:  "The evidence partially supports this theme."
+             GOOD: "What users are reporting as forecast inaccuracy is a
+                    stale data / cache invalidation bug - investing in
+                    forecast model accuracy will not fix this." -->
+      </one_line_verdict>
+
+    </verdict>
+
+    <!--
+      EVIDENCE CHAIN
+      Every claim in the reasoning must be anchored to a named evidence unit.
+      The AI must not produce reasoning that cannot be traced to corpus IDs.
+    -->
+    <evidence_chain required="true">
+
+      <corroborating_evidence required="true" trigger="classification != WEAK">
+        <!-- List each evidence unit that supports the verdict.
+             Each unit must include its ID and a one-line summary of its signal. -->
+        <unit>
+          <id><!-- e.g. R05 --></id>
+          <signal><!-- What this unit contributes to the verdict --></signal>
+        </unit>
+        <!-- Repeat unit for each corroborating piece of evidence -->
+      </corroborating_evidence>
+
+      <counter_signals required="true">
+        <!-- List each evidence unit that contradicts or complicates the verdict.
+             Required even if verdict is STRONG - absence of counter-signals
+             must be stated explicitly, not left implicit.
+             If no counter-signals exist, state: "No counter-signals identified
+             in corpus [ID]. Absence noted." -->
+        <unit>
+          <id><!-- e.g. R03 --></id>
+          <signal><!-- What this unit challenges or complicates --></signal>
+        </unit>
+      </counter_signals>
+
+      <source_diversity required="true">
+        <!-- State the source types present in the evidence chain.
+             Example: "App Store reviews only (S-001). No interview or
+             survey corroboration. Homogeneous source penalty applied." -->
+      </source_diversity>
+
+    </evidence_chain>
+
+    <!--
+      REASONING STEP
+      The explicit chain of inference that produced the verdict.
+      This is not a summary. It is the argument.
+      Addresses P-07 Trust Without Process: the reasoning must be
+      visible and auditable, not reconstructed after the fact.
+    -->
+    <reasoning_step required="true">
+
+      <proposed_classification required="true">
+        <!-- Restate the classification with the reasoning that produced it.
+             Format: "Classified as [X] because [specific logical chain]." -->
+      </proposed_classification>
+
+      <counter_consideration required="true">
+        <!-- What is the strongest argument against this classification?
+             Must engage with the actual counter-signals, not dismiss them.
+             If no counter-argument exists, explain why the corpus is
+             unusually one-directional and flag this as a potential gap. -->
+      </counter_consideration>
+
+      <classification_commitment required="true">
+        <!-- State the final classification and why the counter-consideration
+             does not overturn it. Or, if it does, revise the classification
+             and explain the revision. -->
+      </classification_commitment>
+
+    </reasoning_step>
+
+    <!--
+      FALSIFICATION ATTEMPT
+      Required for all EVALUATION responses.
+      The system must attempt to disprove the verdict before committing it.
+      A verdict that has not been challenged is not a verdict - it is a summary.
+    -->
+    <falsification_attempt required="true" trigger="response_type = EVALUATION or GAP_FLAG">
+
+      <falsification_query required="true">
+        <!-- State the specific question asked to attempt falsification.
+             Example: "Is there any evidence in the corpus that users
+             explicitly praise forecast accuracy, which would contradict
+             the stale data classification?" -->
+      </falsification_query>
+
+      <falsification_result required="true">
+        <!-- One of: FALSIFICATION_FAILED | FALSIFICATION_SUCCEEDED | INCONCLUSIVE
+             FALSIFICATION_FAILED    - attempted to falsify, could not. Verdict stands.
+             FALSIFICATION_SUCCEEDED - falsification evidence found. Verdict revised.
+             INCONCLUSIVE            - evidence ambiguous. Stability set to CONFLICTED. -->
+      </falsification_result>
+
+      <falsification_evidence required="true">
+        <!-- Cite the evidence unit(s) consulted in the falsification attempt.
+             If falsification failed, explain why the counter-evidence
+             does not overturn the verdict. -->
+      </falsification_evidence>
+
+    </falsification_attempt>
+
+    <!--
+      TRANSFER ASSUMPTION CHECK
+      Required whenever the query touches a market or user population
+      not directly represented in the corpus.
+      Must be substantive - not a boilerplate flag.
+      Testing finding: all models flagged EU transfer formulaically.
+      The system must argue the assumption, not just acknowledge it.
+    -->
+    <transfer_assumption_check required="false" trigger="query references population not in corpus">
+
+      <corpus_population required="true">
+        <!-- Who does the current corpus actually represent?
+             Be specific: geography, platform, time period, user segment.
+             Example: "US App Store reviewers, May 2024-May 2026,
+             self-selected motivated users." -->
+      </corpus_population>
+
+      <target_population required="true">
+        <!-- Who does the query or insight claim to apply to?
+             Example: "EU users of Weather Underground." -->
+      </target_population>
+
+      <structural_risks required="true">
+        <!-- Why might the transfer be unsafe?
+             Must name specific structural differences, not generic caveats.
+             BAD:  "Different regions may have different behaviours."
+             GOOD: "EU users have lower PWS density, stronger national met
+                    services (MeteoSwiss, DWD, Météo-France) as credible
+                    alternatives, and a different severe weather severity
+                    profile. Trust formation may follow a different path." -->
+      </structural_risks>
+
+      <transfer_verdict required="true">
+        <!-- One of: TRANSFER_UNSAFE | TRANSFER_UNCERTAIN | TRANSFER_PLAUSIBLE
+             With a one-sentence rationale. -->
+      </transfer_verdict>
+
+      <corpus_required required="true">
+        <!-- Exactly what corpus would need to exist to answer the transfer
+             question with confidence? Name source type, geography, and
+             minimum evidence volume.
+             Example: "EU App Store reviews for Weather Underground,
+             minimum 10 units, covering DE/FR/CH markets." -->
+      </corpus_required>
+
+    </transfer_assumption_check>
+
+    <!--
+      GAP FLAGS
+      Required whenever evidence is absent, thin, or structurally missing.
+      Gap flags are never silent. Every unanswerable question must name
+      the corpus that would make it answerable.
+    -->
+    <gap_flags required="false" trigger="response_type = GAP_FLAG or REFUSAL or PARTIAL">
+
+      <gap>
+        <gap_type required="true">
+          <!-- One of: MISSING_CORPUS | THIN_EVIDENCE | GEOGRAPHY_GAP |
+                       SOURCE_TYPE_GAP | TEMPORAL_GAP | POPULATION_GAP -->
+        </gap_type>
+        <gap_description required="true">
+          <!-- What specifically is missing and why it matters for this query. -->
+        </gap_description>
+        <corpus_required required="true">
+          <!-- Exactly what corpus would resolve this gap.
+               Format: [Source type] - [Geography/scope] - [Min volume]
+               Example: User interview transcripts - EU (DE/FR/CH) - 8+ sessions -->
+        </corpus_required>
+        <registry_entry_to_create required="false">
+          <!-- If a Registry slot should be created to track this gap,
+               suggest the ID and collection tier.
+               Example: C-001 (Contextual - domain_weather_eu) -->
+        </registry_entry_to_create>
+      </gap>
+      <!-- Repeat gap for each identified gap -->
+
+    </gap_flags>
+
+    <!--
+      TACIT KNOWLEDGE PROMPT
+      This field creates structured space for researcher judgment to enter the record.
+      It is not optional when a verdict is committed.
+      Addresses P-03 Transcript Literalism and Step 8 of the Incremental Synthesis workflow.
+      The application layer must render this prominently - not buried.
+    -->
+    <tacit_knowledge_prompt required="true" trigger="response_type = EVALUATION or GAP_FLAG">
+
+      <prompt_text required="true">
+        <!-- A specific question for the researcher about what the corpus might
+             not contain. Not generic. Derived from the specific verdict and
+             evidence gaps identified above.
+             BAD:  "Is there anything else you know from the research?"
+             GOOD: "R03 praises forecast accuracy while all other trust signals
+                    point to stale data. Were there any session moments - a
+                    hesitation, a correction, a follow-up - that would help
+                    resolve whether R03 is a genuine outlier or a misrecorded
+                    signal?" -->
+      </prompt_text>
+
+      <confidence_impact required="true">
+        <!-- How would a tacit knowledge annotation affect the confidence score?
+             Example: "A researcher annotation confirming the stale data
+             interpretation would raise confidence from 0.71 to 0.86
+             (researcher-confirmed modifier: +0.15)." -->
+      </confidence_impact>
+
+    </tacit_knowledge_prompt>
+
+    <!--
+      DECISION SUPPORT
+      The insight's practical implication for product decisions.
+      Addresses the decision-change vs decision-enable distinction
+      specified in the Framework RAG.
+    -->
+    <decision_support required="true" trigger="response_type = EVALUATION or GAP_FLAG">
+
+      <decision_this_changes required="false">
+        <!-- A decision the team might currently be pursuing that this
+             verdict should stop or redirect.
+             Example: "Investment in improving the forecast model accuracy
+             pipeline. This verdict redirects that investment to cache
+             invalidation logic." -->
+      </decision_this_changes>
+
+      <decision_this_enables required="false">
+        <!-- A decision the team can now make with confidence.
+             Example: "The engineering team can now investigate cache
+             TTL and data freshness infrastructure as the proximate
+             cause of reported inaccuracy." -->
+      </decision_this_enables>
+
+      <decision_this_cannot_support required="true">
+        <!-- What decision cannot be made on this evidence alone?
+             This field prevents overreach.
+             Example: "Whether EU users experience the same stale data
+             pattern. The corpus does not contain EU evidence." -->
+      </decision_this_cannot_support>
+
+    </decision_support>
+
+    <!--
+      REFRAMED INSIGHT
+      If the verdict reclassifies or materially reframes the original theme,
+      provide the revised insight wording here.
+      Every word must be traceable to at least one evidence unit.
+      The AI cannot introduce claims not present in the corpus.
+    -->
+    <reframed_insight required="false" trigger="verdict differs materially from original_theme">
+
+      <proposed_wording required="true">
+        <!-- The revised insight statement. Specific, behavioural, falsifiable.
+             Example: "Users experiencing apparent forecast inaccuracy in WU
+             are most likely seeing cached stale data rather than a model
+             error - the underlying forecast accuracy is defended even by
+             dissatisfied users (R03)." -->
+      </proposed_wording>
+
+      <diff_summary required="true">
+        <!-- One sentence describing what changed and why.
+             Example: "Reframe: from forecast model failure to cache
+             invalidation bug. Driven by R03 counter-signal and
+             behavioural pattern in R05, R09, R13." -->
+      </diff_summary>
+
+      <evidence_ids required="true">
+        <!-- All evidence IDs that support the proposed wording. -->
+      </evidence_ids>
+
+    </reframed_insight>
+
+  </SprintZero_response>
+
+</SprintZero_schema>
+
+<!--
+  SprintZero - Output Schema - v1.0 - May 2026
+  This file is maintained independently of the Framework RAG and the Corpus RAG.
+  Changes to this schema require updating the application rendering layer.
+  Changes to the Framework RAG do not require changes to this schema unless
+  a new required field is introduced.
+-->

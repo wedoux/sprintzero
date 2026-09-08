@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SprintZero · Research Copilot</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2360A5FA'/><stop offset='60%25' stop-color='%233B82F6'/><stop offset='100%25' stop-color='%231E3A8A'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='16' y='22' font-family='-apple-system, sans-serif' font-size='14' font-weight='800' text-anchor='middle' fill='white' letter-spacing='-0.5'>S0</text></svg>">
+    <style>
+        /* ==================== RESET + ROOT ==================== */
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+            color: #1A2332;
+            line-height: 1.5;
+            background: #F7F9FC;
+            font-feature-settings: "cv11", "ss01", "ss03";
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        code { background: #F0F3F8; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+        :root {
+            /* Brand */
+            --navy-900: #0F1F3A;
+            --navy-700: #1B3A5C;
+            --navy-500: #2E6DA4;
+            --navy-300: #60A5FA;
+            --navy-100: #DBEAFE;
+            /* Agent 2 */
+            --violet-700: #5B3FB3;
+            --violet-500: #7C5CD3;
+            --violet-100: #EFE7FC;
+            /* Status */
+            --green-700: #1E7A47;
+            --green-500: #276B47;
+            --green-100: #DDF0E4;
+            --amber-700: #8B5A00;
+            --amber-500: #B07800;
+            --amber-100: #FFEFC9;
+            --red-700: #A01F1F;
+            --red-500: #B04040;
+            --red-100: #FCDFDF;
+            /* Neutrals */
+            --ink-900: #0F172A;
+            --ink-800: #1A2332;
+            --ink-600: #475467;
+            --ink-500: #5C6573;
+            --ink-400: #8B919D;
+            --ink-300: #B0B7C2;
+            --line-200: #EAECEF;
+            --line-100: #EEF1F5;
+            --bg-100: #F7F9FC;
+            --bg-50: #FAFBFD;
+            /* Elevation */
+            --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+            /* Geometry */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 10px;
+            --radius-xl: 14px;
+            --radius-full: 999px;
+        }
+
+        /* ==================== LAYOUT ==================== */
+        .layout { display: flex; height: 100vh; overflow: hidden; }
+
+        /* ==================== LEFT (CHAT) PANE ==================== */
+        .chat-pane {
+            width: 33.33%; min-width: 380px; max-width: 520px;
+            background: white; border-right: 1px solid var(--line-200);
+            display: flex; flex-direction: column;
+        }
+
+        /* Project header — refined SaaS topbar */
+        .project-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--line-200);
+            background: var(--navy-700);
+            background-image: linear-gradient(135deg, #1B3A5C 0%, #0F1F3A 100%);
+            color: white;
+            font-size: 13px;
+            display: flex; align-items: center; gap: 10px;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+        }
+        .project-header .logo {
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            filter: drop-shadow(0 1px 3px rgba(59, 130, 246, 0.35));
+        }
+        .project-header .brand {
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: -0.01em;
+            color: white;
+            margin-right: auto;
+        }
+        .project-header .project-divider {
+            width: 1px; height: 18px; background: rgba(255,255,255,0.18);
+        }
+        .project-header .project-info {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px;
+        }
+        .project-header .project-label {
+            opacity: 0.6;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .project-header .project-name { font-weight: 600; }
+        .project-header .project-tick {
+            color: #6EE7B7;
+            font-size: 11px;
+        }
+
+        /* Knowledge base card */
+        .kb-card {
+            padding: 12px 18px;
+            background: linear-gradient(180deg, #F4FAF6 0%, #EAF5EE 100%);
+            border-bottom: 1px solid var(--line-200);
+            flex-shrink: 0;
+        }
+        .kb-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; color: var(--green-500); margin-bottom: 6px;
+        }
+        .kb-list { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+        .kb-list li {
+            display: flex; gap: 6px; align-items: baseline;
+            margin-bottom: 3px; color: var(--ink-600);
+        }
+        .kb-list li::before {
+            content: ""; display: inline-block;
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--green-500);
+            flex-shrink: 0; transform: translateY(-2px);
+        }
+        .kb-list strong { color: var(--navy-700); font-weight: 600; }
+
+        /* Chat trail */
+        .chat-trail { flex: 1; overflow-y: auto; padding: 18px 18px 8px 18px; }
+        .chat-trail-initial {
+            color: var(--ink-400); font-size: 13px;
+            text-align: center; margin-top: 32px; padding: 0 20px;
+            line-height: 1.6;
+        }
+
+        .chat-turn { margin-bottom: 22px; }
+        .chat-turn:last-child { margin-bottom: 12px; }
+
+        /* User query bubble */
+        .query-bubble {
+            background: linear-gradient(135deg, #2E6DA4 0%, #1B3A5C 100%);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 14px 14px 4px 14px;
+            max-width: 88%;
+            margin: 0 0 10px auto;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+        }
+
+        /* Activity log (live + collapsed) */
+        .activity-log {
+            background: var(--bg-50);
+            border: 1px solid var(--line-200);
+            border-radius: var(--radius-md);
+            margin-bottom: 10px;
+            transition: border-color 0.15s;
+        }
+        .activity-log[open] { border-color: #D0D7DE; }
+        .activity-log > summary {
+            padding: 10px 14px; cursor: pointer; list-style: none;
+            font-size: 12px; color: var(--ink-500); user-select: none;
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 500;
+        }
+        .activity-log > summary::-webkit-details-marker { display: none; }
+        .activity-log > summary::before {
+            content: ""; display: inline-block;
+            width: 0; height: 0;
+            border-left: 5px solid var(--ink-400);
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            transition: transform 0.15s;
+        }
+        .activity-log[open] > summary::before { transform: rotate(90deg); }
+        .activity-log[open] > summary { border-bottom: 1px solid var(--line-100); }
+        .activity-entries { list-style: none; margin: 0; padding: 8px 14px 10px 14px; font-size: 12px; color: var(--ink-600); }
+        .activity-entry {
+            padding: 5px 0 5px 22px; position: relative;
+            opacity: 0; animation: fadein 0.3s forwards;
+            line-height: 1.45;
+        }
+        .activity-entry::before {
+            content: ""; position: absolute; left: 5px; top: 11px;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--ink-300);
+            box-shadow: 0 0 0 2px var(--bg-50);
+            z-index: 1;
+        }
+        /* Vertical connector line linking each step to the next. */
+        .activity-entry::after {
+            content: ""; position: absolute;
+            left: 8px;
+            top: 19px;
+            bottom: -11px;
+            width: 2px;
+            background: var(--line-200);
+            z-index: 0;
+        }
+        .activity-entry:last-child::after { display: none; }
+        .activity-entry.done::before { background: var(--green-500); }
+        .activity-entry.handoff::before { background: var(--violet-500); }
+        .activity-entry.final::before { background: var(--navy-700); }
+        @keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Conversational system messages */
+        .sys-msg {
+            background: white;
+            border: 1px solid var(--line-200);
+            border-left: 3px solid var(--navy-500);
+            border-radius: var(--radius-md);
+            padding: 11px 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            box-shadow: var(--shadow-sm);
+        }
+        .sys-msg-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-500); margin-bottom: 4px; font-weight: 700; }
+        .sys-msg-body { color: var(--ink-800); white-space: pre-wrap; line-height: 1.5; }
+        .sys-msg-challenge { border-left-color: var(--amber-500); background: #FFFAEB; }
+        .sys-msg-challenge .sys-msg-label { color: var(--amber-700); }
+        .sys-msg-required { border-left-color: var(--amber-500); }
+        .sys-msg-required .sys-msg-label { color: var(--amber-700); }
+        .sys-msg-options { border-left-color: var(--green-500); }
+        .sys-msg-options .sys-msg-label { color: var(--green-500); }
+        .sys-msg-tacit { border-left-color: var(--violet-500); background: #F8F4FF; }
+        .sys-msg-tacit .sys-msg-label { color: var(--violet-700); }
+        .sys-msg-error { border-left-color: var(--red-500); background: #FEF2F2; }
+        .sys-msg-error .sys-msg-label { color: var(--red-700); }
+        .sys-msg-done {
+            font-size: 12px; color: var(--ink-500);
+            padding: 6px 14px;
+            background: none; border: none;
+            box-shadow: none;
+        }
+        .sys-msg-done-arrow { color: var(--green-500); font-weight: 700; margin-right: 6px; }
+        .sys-msg-detail { margin-top: 8px; font-size: 12px; }
+        .sys-msg-detail summary { cursor: pointer; color: var(--ink-500); user-select: none; }
+        .sys-msg-detail > div { padding-top: 6px; color: var(--ink-500); }
+
+        /* Theme hint above textarea */
+        .theme-hint { margin: 0 18px 8px 18px; font-size: 12px; }
+        .theme-hint > summary {
+            cursor: pointer; color: var(--navy-500);
+            user-select: none; list-style: none;
+            padding: 4px 0;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-weight: 500;
+        }
+        .theme-hint > summary::-webkit-details-marker { display: none; }
+        .theme-hint > summary::before {
+            content: "?";
+            display: inline-flex;
+            width: 16px; height: 16px;
+            background: var(--navy-100);
+            color: var(--navy-500);
+            border-radius: 50%;
+            font-weight: 800; font-size: 11px;
+            align-items: center; justify-content: center;
+            flex-shrink: 0;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .theme-hint-body {
+            background: linear-gradient(180deg, #F0F7FA 0%, #E6F0F5 100%);
+            border: 1px solid #D6E8F0;
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            color: var(--ink-600);
+            margin-top: 6px; line-height: 1.55;
+        }
+        .theme-hint-body ul { margin: 6px 0; padding-left: 18px; }
+        .theme-hint-body em { color: var(--navy-700); font-style: italic; }
+
+        /* Sticky textarea */
+        .chat-input-area {
+            flex-shrink: 0; padding: 8px 18px 18px 18px;
+            background: white; border-top: 1px solid var(--line-200);
+        }
+        .chat-input-inner {
+            display: flex; gap: 6px; align-items: flex-end;
+            background: white;
+            border: 1.5px solid #D9DFE6;
+            border-radius: var(--radius-xl);
+            padding: 7px 7px 7px 14px;
+            box-shadow: var(--shadow-sm);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .chat-input-inner:focus-within {
+            border-color: var(--navy-500);
+            box-shadow: 0 0 0 3px rgba(46, 109, 164, 0.12), var(--shadow-sm);
+        }
+        .chat-input-inner textarea {
+            flex: 1; border: 0; outline: none; resize: none;
+            font-family: inherit; font-size: 14px;
+            min-height: 22px; max-height: 180px;
+            padding: 5px 0; line-height: 1.45;
+            color: var(--ink-800); background: transparent;
+        }
+        .chat-input-inner textarea::placeholder { color: var(--ink-400); }
+        .send-btn {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--navy-500);
+            color: white; border: 0; cursor: pointer;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            line-height: 1;
+            box-shadow: 0 1px 2px rgba(46, 109, 164, 0.25);
+            transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+        }
+        .send-btn svg { display: block; }
+        .send-btn:hover:not(:disabled) {
+            background: var(--navy-700);
+            box-shadow: 0 2px 5px rgba(46, 109, 164, 0.35);
+            transform: translateY(-1px);
+        }
+        .send-btn:active:not(:disabled) { transform: translateY(0); }
+        .send-btn:disabled { background: #B0BAC5; cursor: not-allowed; box-shadow: none; }
+
+        /* ==================== RIGHT (OUTPUT) PANE ==================== */
+        .right-pane { flex: 1; overflow-y: auto; padding: 28px 36px; background: var(--bg-100); }
+
+        /* Empty / initial states */
+        .empty-pane {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 80%; color: var(--ink-400);
+            text-align: center; padding: 40px;
+        }
+        .empty-pane-logo {
+            margin-bottom: 18px;
+            opacity: 0.5;
+        }
+        .empty-pane-glyph { font-size: 40px; color: #C9D2DC; margin-bottom: 12px; }
+        .empty-pane-text { font-size: 15px; color: var(--ink-500); font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
+        .empty-pane-sub { font-size: 13px; color: var(--ink-400); line-height: 1.6; max-width: 320px; }
+
+        /* Agent surface */
+        .agent-surface {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 6px;
+            overflow: hidden;
+            border: 1px solid var(--line-200);
+        }
+        .agent-banner {
+            padding: 11px 22px;
+            display: flex; align-items: baseline; gap: 12px;
+            border-bottom: 1px solid var(--line-200);
+        }
+        .agent-name {
+            font-weight: 700; font-size: 13px;
+            letter-spacing: -0.005em;
+        }
+        .agent-role {
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--ink-400);
+            font-weight: 600;
+        }
+        .agent1-banner { background: linear-gradient(180deg, #F5F9FD 0%, #EBF2FA 100%); }
+        .agent1-banner .agent-name { color: var(--navy-700); }
+        .agent1-banner .agent-name::before {
+            content: ""; display: inline-block; vertical-align: middle;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--navy-500);
+            margin-right: 8px;
+            box-shadow: 0 0 0 3px rgba(46, 109, 164, 0.15);
+        }
+        .agent2-banner { background: linear-gradient(180deg, #FAF6FF 0%, #F3EBFF 100%); }
+        .agent2-banner .agent-name { color: var(--violet-700); }
+        .agent2-banner .agent-name::before {
+            content: ""; display: inline-block; vertical-align: middle;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--violet-500);
+            margin-right: 8px;
+            box-shadow: 0 0 0 3px rgba(124, 92, 211, 0.18);
+        }
+
+        /* Verdict banner inside Agent 1 surface */
+        .verdict-banner {
+            padding: 22px 26px;
+            border-bottom: 1px solid var(--line-200);
+        }
+        .verdict-banner.STRONG { background: linear-gradient(180deg, #F0F7F2 0%, #E5F2EA 100%); }
+        .verdict-banner.WEAK { background: linear-gradient(180deg, #FEF2F2 0%, #FCDFDF 100%); }
+        .verdict-banner.UNCERTAIN { background: linear-gradient(180deg, #FFFAEB 0%, #FFEFC9 100%); }
+        .verdict-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--ink-500); font-weight: 700; margin-bottom: 8px;
+        }
+        .classification {
+            font-size: 36px; font-weight: 800;
+            letter-spacing: -0.025em; line-height: 1;
+        }
+        .classification.STRONG { color: var(--green-700); }
+        .classification.WEAK { color: var(--red-700); }
+        .classification.UNCERTAIN { color: var(--amber-700); }
+        .confidence-row {
+            display: flex; align-items: center; gap: 12px;
+            margin-top: 12px; font-size: 12px; color: var(--ink-500);
+            font-weight: 500;
+        }
+        .confidence-num { white-space: nowrap; }
+        .confidence-stab { white-space: nowrap; }
+        .confidence-bar {
+            flex: 0 1 180px; height: 6px;
+            background: rgba(15, 23, 42, 0.07);
+            border-radius: var(--radius-full); overflow: hidden;
+        }
+        .confidence-fill {
+            display: block; height: 100%;
+            background: var(--navy-500);
+            border-radius: var(--radius-full);
+            transition: width 0.5s ease;
+        }
+        .confidence-fill.STRONG { background: var(--green-500); }
+        .confidence-fill.UNCERTAIN { background: var(--amber-500); }
+        .confidence-fill.WEAK { background: var(--red-500); }
+        .verdict-summary { margin-top: 14px; font-size: 14px; color: var(--ink-800); line-height: 1.55; }
+
+        /* Spine cards */
+        .spine { padding: 14px 22px 18px 22px; }
+        .spine-card {
+            background: white;
+            border: 1px solid var(--line-200);
+            border-radius: var(--radius-md);
+            margin-bottom: 8px;
+            overflow: hidden;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .spine-card:hover { border-color: #D9DFE6; }
+        .spine-card[open] { box-shadow: var(--shadow-sm); }
+        .spine-card > summary {
+            padding: 11px 16px; cursor: pointer; list-style: none;
+            display: flex; align-items: center; gap: 12px; user-select: none;
+        }
+        .spine-card > summary::-webkit-details-marker { display: none; }
+        .spine-card > summary::after {
+            content: ""; margin-left: auto; flex-shrink: 0;
+            width: 0; height: 0;
+            border-left: 5px solid var(--ink-300);
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            transition: transform 0.15s;
+        }
+        .spine-card[open] > summary::after { transform: rotate(90deg); }
+        .spine-card > summary:hover { background: var(--bg-50); }
+        .card-title {
+            font-weight: 600; font-size: 13px;
+            color: var(--navy-700); letter-spacing: -0.005em;
+        }
+        .card-summary { color: var(--ink-400); font-size: 12px; }
+        .card-body { padding: 10px 16px 16px 16px; border-top: 1px solid var(--line-100); }
+        .field { margin-bottom: 14px; }
+        .field:last-child { margin-bottom: 0; }
+        .field-label {
+            font-weight: 700; font-size: 10px;
+            color: var(--ink-500); margin-bottom: 5px;
+            text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .field-value { white-space: pre-wrap; font-size: 13px; line-height: 1.55; color: var(--ink-800); }
+        .field-id {
+            display: inline-block;
+            background: var(--navy-700); color: white;
+            font-size: 10px; padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-weight: 600;
+            margin-right: 8px;
+            vertical-align: baseline;
+            letter-spacing: 0.02em;
+        }
+        .evidence-item { margin-bottom: 8px; font-size: 13px; line-height: 1.55; }
+
+        /* Gap flags card: amber even when collapsed */
+        .spine-card-gaps { background: linear-gradient(180deg, #FFFAEB 0%, #FFF5D9 100%); border-color: #F5DDA0; }
+        .spine-card-gaps:hover { border-color: #ECD080; }
+        .spine-card-gaps > summary .card-title { color: var(--amber-700); }
+        .spine-card-gaps > summary .card-summary { color: var(--amber-500); }
+        .spine-card-gaps > summary:hover { background: rgba(255, 239, 201, 0.5); }
+        .spine-card-gaps[open] > summary { background: #FFF1D0; }
+
+        /* Agent divider */
+        .agent-divider {
+            display: flex; align-items: center; gap: 14px;
+            margin: 22px 0;
+        }
+        .agent-divider-line {
+            flex: 1; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--violet-500), transparent);
+        }
+        .agent-divider-label {
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: 0.14em; color: var(--violet-700);
+            font-weight: 700; white-space: nowrap;
+        }
+
+        /* Agent 2 surface */
+        .agent2-surface { border-top: 3px solid var(--violet-500); }
+        .qa-stamp-large { padding: 22px 26px; border-bottom: 1px solid var(--line-200); }
+        .qa-stamp-large.QA_PASSED { background: linear-gradient(180deg, #F0F7F2 0%, #E5F2EA 100%); }
+        .qa-stamp-large.QA_FAILED { background: linear-gradient(180deg, #FEF2F2 0%, #FCDFDF 100%); }
+        .qa-stamp-large.QA_PENDING { background: linear-gradient(180deg, #FFFAEB 0%, #FFEFC9 100%); }
+        .qa-stamp-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--ink-500); font-weight: 700; margin-bottom: 8px;
+        }
+        .qa-stamp-value { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
+        .qa-stamp-value.QA_PASSED { color: var(--green-700); }
+        .qa-stamp-value.QA_FAILED { color: var(--red-700); }
+        .qa-stamp-value.QA_PENDING { color: var(--amber-700); }
+
+        .qa-note {
+            padding: 16px 22px;
+            background: white;
+            border-bottom: 1px solid var(--line-200);
+        }
+        .qa-note-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--violet-700); font-weight: 700; margin-bottom: 6px;
+        }
+        .qa-note-body { font-size: 13px; line-height: 1.6; color: var(--ink-800); white-space: pre-wrap; }
+
+        .qa-section {
+            background: white;
+            border: 1px solid var(--line-200);
+            border-radius: var(--radius-md);
+            margin: 8px 22px;
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+        .qa-section:hover { border-color: #D9DFE6; }
+        .qa-section > summary {
+            padding: 11px 16px; cursor: pointer; list-style: none;
+            display: flex; align-items: center; gap: 12px; user-select: none;
+        }
+        .qa-section > summary::-webkit-details-marker { display: none; }
+        .qa-section > summary::after {
+            content: ""; margin-left: auto; flex-shrink: 0;
+            width: 0; height: 0;
+            border-left: 5px solid var(--ink-300);
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            transition: transform 0.15s;
+        }
+        .qa-section[open] > summary::after { transform: rotate(90deg); }
+        .qa-section > summary:hover { background: var(--bg-50); }
+        .qa-section:last-child { margin-bottom: 16px; }
+
+        /* Seven-check rows with pills */
+        .checks-list { list-style: none; padding: 4px 16px 12px 16px; margin: 0; border-top: 1px solid var(--line-100); }
+        .check-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 0; font-size: 13px;
+            border-bottom: 1px solid var(--line-100);
+        }
+        .check-row:last-child { border-bottom: 0; }
+        .check-name { color: var(--ink-800); font-weight: 500; }
+        .check-pill {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+            padding: 3px 9px; border-radius: var(--radius-full);
+            text-transform: uppercase;
+        }
+        .check-pill-PASS { background: var(--green-100); color: var(--green-700); }
+        .check-pill-FAIL { background: var(--red-100); color: var(--red-700); }
+        .check-pill-PASS_WITH_NOTE { background: var(--amber-100); color: var(--amber-700); }
+        .check-pill-SKIPPED { background: var(--line-100); color: var(--ink-500); }
+
+        /* ==================== AGENT 2 SKELETON ==================== */
+        /* Shown immediately when Agent 1 completes; swapped out by JS when /qa returns. */
+        .qa-skeleton-surface .agent-banner { position: relative; }
+        .qa-running-pill {
+            margin-left: auto;
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: 0.08em; font-weight: 700;
+            background: var(--violet-100); color: var(--violet-700);
+            padding: 3px 9px; border-radius: var(--radius-full);
+        }
+        .qa-running-dot {
+            width: 6px; height: 6px;
+            background: var(--violet-500); border-radius: 50%;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.4; transform: scale(0.75); }
+        }
+
+        .qa-skeleton-stamp { background: linear-gradient(180deg, #FAFBFD 0%, #F4F6F9 100%) !important; }
+        .qa-skeleton-section {
+            background: white;
+            border: 1px solid var(--line-200);
+            border-radius: var(--radius-md);
+            margin: 8px 22px 16px 22px;
+            padding: 10px 16px;
+        }
+        .qa-skeleton-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--line-100);
+        }
+        .qa-skeleton-row:last-child { border-bottom: 0; }
+
+        .skeleton-bar {
+            display: block;
+            height: 12px;
+            background: linear-gradient(90deg, #EEF1F5 0%, #F7F9FC 50%, #EEF1F5 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.6s ease-in-out infinite;
+            border-radius: 4px;
+            margin-bottom: 9px;
+        }
+        .skeleton-bar:last-child { margin-bottom: 0; }
+        .skeleton-bar-stamp { height: 32px; width: 220px; margin-top: 6px; border-radius: 6px; }
+        .skeleton-bar-short { width: 62%; }
+        .skeleton-bar-row-title { height: 12px; width: 200px; margin-bottom: 0; }
+        .skeleton-bar-row-pill { height: 18px; width: 64px; border-radius: 999px; margin-bottom: 0; }
+        @keyframes skeleton-shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ==================== AGENT 1 SKELETON ==================== */
+        .agent1-skeleton-verdict {
+            background: linear-gradient(180deg, #FAFBFD 0%, #F4F6F9 100%) !important;
+        }
+        .skeleton-bar-verdict {
+            height: 38px; width: 240px;
+            margin-top: 6px; margin-bottom: 14px;
+            border-radius: 6px;
+        }
+        .skeleton-bar-confidence-num { height: 12px; width: 96px; margin-bottom: 0; }
+        .skeleton-bar-confidence-track { height: 6px; flex: 0 1 180px; margin-bottom: 0; border-radius: 999px; }
+        .agent1-skeleton-summary { margin-top: 14px; }
+        .agent1-skeleton-row {
+            background: white;
+            border: 1px solid var(--line-200);
+            border-radius: var(--radius-md);
+            margin-bottom: 8px;
+            padding: 11px 16px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .skeleton-bar-row-title { height: 13px; width: 180px; margin-bottom: 0; }
+        .skeleton-bar-row-meta { height: 11px; width: 140px; margin-bottom: 0; opacity: 0.6; }
+
+        /* ==================== ACTIVITY LOG: HEARTBEAT + PULSING SUMMARY ==================== */
+        .activity-entry.heartbeat {
+            color: var(--ink-500);
+            font-style: italic;
+        }
+        .activity-entry.heartbeat::before {
+            background: var(--navy-500);
+            animation: heartbeat-pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes heartbeat-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.35; transform: scale(0.75); }
+        }
+        .heartbeat-counter {
+            color: var(--ink-400);
+            margin-left: 4px;
+            font-variant-numeric: tabular-nums;
+            font-style: normal;
+            font-size: 11px;
+        }
+
+        /* Parse failure */
+        .parse-fail {
+            background: linear-gradient(180deg, #FEF2F2 0%, #FCE7E7 100%);
+            border-left: 4px solid var(--red-500);
+            padding: 18px 22px; border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .parse-fail-label { font-weight: 700; color: var(--red-700); margin-bottom: 8px; font-size: 14px; letter-spacing: -0.01em; }
+        .parse-fail-detail { font-size: 13px; margin-bottom: 14px; color: var(--ink-800); }
+        .parse-fail-rawlabel { font-weight: 700; color: var(--red-700); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+        pre.raw { background: white; padding: 14px; overflow-x: auto; font-size: 12px; border-radius: var(--radius-md); max-height: 420px; border: 1px solid var(--line-200); margin: 0; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+        /* General error pill on chat */
+        .error {
+            padding: 10px 14px;
+            background: linear-gradient(180deg, #FEF2F2 0%, #FCE7E7 100%);
+            border: 1px solid #F5C5C5;
+            border-left: 3px solid var(--red-500);
+            color: var(--red-700); font-size: 13px;
+            border-radius: var(--radius-md); margin-bottom: 8px;
+        }
+
+        /* Custom scrollbars (Webkit) */
+        .chat-trail::-webkit-scrollbar, .right-pane::-webkit-scrollbar { width: 10px; }
+        .chat-trail::-webkit-scrollbar-track, .right-pane::-webkit-scrollbar-track { background: transparent; }
+        .chat-trail::-webkit-scrollbar-thumb, .right-pane::-webkit-scrollbar-thumb { background: #D9DFE6; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+        .chat-trail::-webkit-scrollbar-thumb:hover, .right-pane::-webkit-scrollbar-thumb:hover { background: #B0B7C2; background-clip: content-box; border: 2px solid transparent; }
+    </style>
+</head>
+<body>
+<div class="layout">
+
+    <!-- ============== LEFT (CHAT) PANE ============== -->
+    <aside class="chat-pane">
+        <header class="project-header">
+            <span class="logo" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="s0Grad" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#60A5FA"/>
+                            <stop offset="60%" stop-color="#3B82F6"/>
+                            <stop offset="100%" stop-color="#1E3A8A"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="32" height="32" rx="8" fill="url(#s0Grad)"/>
+                    <text x="16" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="800" text-anchor="middle" fill="white" letter-spacing="-0.5">S0</text>
+                </svg>
+            </span>
+            <span class="brand">SprintZero</span>
+            <span class="project-divider"></span>
+            <div class="project-info">
+                <span class="project-label">Project</span>
+                <span class="project-name">{{ project_state.project_name }}</span>
+                <span class="project-tick">●</span>
+            </div>
+        </header>
+
+        {% if loaded_files %}
+        <div class="kb-card">
+            <div class="kb-label">Knowledge base</div>
+            <ul class="kb-list">
+                {% for group in loaded_files %}
+                <li>
+                    <div>
+                    <strong>{{ group.label }}:</strong>
+                    {% if group['items']|length == 1 %}
+                        {{ group['items'][0].name }}
+                    {% else %}
+                        {{ group['items'] | map(attribute='name') | join(', ') }}
+                    {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="chat-trail" id="chat-trail">
+            <div class="chat-trail-initial" id="chat-trail-initial">
+                Submit a theme below to begin.<br>
+                Your queries and the system's reasoning trail will appear here.
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <details class="theme-hint">
+                <summary>What makes a good theme?</summary>
+                <div class="theme-hint-body">
+                    A theme is a hypothesis about user behaviour. Evaluation works best when the theme names:
+                    <ul>
+                        <li>The behaviour — what users do</li>
+                        <li>The trigger — when or why they do it</li>
+                        <li>The consequence — what it means for the product</li>
+                    </ul>
+                    Example: <em>"Weather Underground iOS users cross-check a second weather app before committing to outdoor plans because the displayed temperature feels stale."</em>
+                </div>
+            </details>
+            <form id="question-form" autocomplete="off">
+                <div class="chat-input-inner">
+                    <textarea name="question" id="question" placeholder="Submit a theme, or answer the system's question…" rows="1" autofocus></textarea>
+                    <button type="submit" id="submit-btn" class="send-btn" title="Send" aria-label="Send">
+                        <svg width="14" height="11" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M27.3589 10.0665L1.35894 0.0665373C0.937036 -0.0955627 0.459036 0.0460374 0.192936 0.409337C-0.0736637 0.774537 -0.0629637 1.27264 0.219236 1.62514L7.71924 11.0001L0.219236 20.3751C-0.0629637 20.7276 -0.0737636 21.2257 0.192836 21.5909C0.385736 21.8536 0.688036 22.0001 1.00054 22.0001C1.12014 22.0001 1.24174 21.9786 1.35894 21.9337L27.3589 11.9337C27.7451 11.7853 28 11.4142 28 11.0001C28 10.586 27.7451 10.2149 27.3589 10.0665Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ============== RIGHT (OUTPUT) PANE ============== -->
+    <main class="right-pane" id="right-pane">
+        <div class="empty-pane">
+            <div class="empty-pane-logo">
+                <svg width="56" height="56" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="s0Grad-empty" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#60A5FA"/>
+                            <stop offset="60%" stop-color="#3B82F6"/>
+                            <stop offset="100%" stop-color="#1E3A8A"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="32" height="32" rx="8" fill="url(#s0Grad-empty)"/>
+                    <text x="16" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="800" text-anchor="middle" fill="white" letter-spacing="-0.5">S0</text>
+                </svg>
+            </div>
+            <div class="empty-pane-text">No analysis yet</div>
+            <div class="empty-pane-sub">Submit a theme on the left to see the verdict, evidence, and independent QA review appear here.</div>
+        </div>
+    </main>
+
+</div>
+
+<!-- Server-rendered skeletons; cloned by JS at the relevant moment.
+     Agent 1 skeleton is painted at submit (we don't yet know the response type).
+     QA skeleton is injected only when Phase 2 begins (i.e. when we know the
+     QA agent is actually running), so CHALLENGE / INTAKE turns never show it. -->
+<template id="agent1-skeleton-template">{% include 'partials/agent1_skeleton.html' %}</template>
+<template id="qa-skeleton-template">{% include 'partials/qa_skeleton.html' %}</template>
+
+<script>
+// Activity log entries are split into:
+//   PACED  — honest narration of work happening server-side; play on a timer.
+//   GATED  — fire only when the actual fetch returns; never on a timer.
+// Between them, if the paced run finishes before the fetch, a HEARTBEAT
+// entry shows "Thinking… (Xs)" with a live counter until the fetch resolves.
+const PHASE1_PACED = [
+    { text: "Loading framework ({{ project_state.display_names.get('evaluation.md', 'evaluation.md') }})…", cls: "" },
+    { text: "Loading reference data ({{ project_state.display_names.get('weather_underground.md', 'weather_underground.md') }})…", cls: "" },
+    { text: "Evaluating theme against corpus…", cls: "" },
+    { text: "Checking counter-signals…", cls: "" },
+    { text: "Running falsification attempt…", cls: "" },
+];
+const PHASE1_GATED = [
+    { text: "Agent 1 verdict ready", cls: "done" },
+];
+const PHASE2_PACED = [
+    { text: "Handing off to QA Validation Agent…", cls: "handoff" },
+    { text: "QA Agent: running seven checks…", cls: "handoff" },
+];
+const PHASE2_GATED = [
+    { text: "QA Agent: verdict ready", cls: "done" },
+    { text: "Result available in right pane →", cls: "final" },
+];
+
+const PHASE1_PACE_MS = 3500;   // ~17s total (5 paced entries)
+const PHASE2_PACE_MS = 5000;   // ~10s total (2 paced entries)
+const GATED_PACE_MS  = 500;    // small pause between gated entries so they read sequentially
+const HEARTBEAT_AFTER_MS = 1500; // delay before showing the heartbeat after paced finishes
+
+const ta = document.getElementById('question');
+const form = document.getElementById('question-form');
+const submitBtn = document.getElementById('submit-btn');
+const chatTrail = document.getElementById('chat-trail');
+const chatTrailInitial = document.getElementById('chat-trail-initial');
+const rightPane = document.getElementById('right-pane');
+
+// Auto-grow textarea
+ta.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 180) + 'px';
+});
+// Enter to submit (Shift+Enter newlines)
+ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+    }
+});
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+function scrollChatToBottom() {
+    chatTrail.scrollTop = chatTrail.scrollHeight;
+}
+
+function newTurn(queryText) {
+    if (chatTrailInitial) chatTrailInitial.remove();
+    const turn = document.createElement('div');
+    turn.className = 'chat-turn';
+    const bubble = document.createElement('div');
+    bubble.className = 'query-bubble';
+    bubble.textContent = queryText;
+    turn.appendChild(bubble);
+    chatTrail.appendChild(turn);
+    scrollChatToBottom();
+    return turn;
+}
+
+function newActivityLog(turn) {
+    const log = document.createElement('details');
+    log.className = 'activity-log';
+    log.open = true;
+    log.innerHTML = '<summary><span class="log-summary-text">Running</span></summary><ul class="activity-entries"></ul>';
+    turn.appendChild(log);
+    // Pulse the dots in the summary while the log is "live".
+    const summaryText = log.querySelector('.log-summary-text');
+    let dotCount = 0;
+    const dotsTimer = setInterval(function () {
+        dotCount = (dotCount + 1) % 4;
+        summaryText.textContent = 'Running' + '.'.repeat(dotCount);
+    }, 450);
+    log._dotsTimer = dotsTimer;  // stash for cleanup in finalize()
+    scrollChatToBottom();
+    return log;
+}
+
+function startHeartbeat(log) {
+    const ul = log.querySelector('.activity-entries');
+    const li = document.createElement('li');
+    li.className = 'activity-entry heartbeat';
+    li.innerHTML = '<span>Thinking…</span><span class="heartbeat-counter">(0s)</span>';
+    ul.appendChild(li);
+    scrollChatToBottom();
+    const start = Date.now();
+    const counterEl = li.querySelector('.heartbeat-counter');
+    const timer = setInterval(function () {
+        const elapsed = Math.round((Date.now() - start) / 1000);
+        counterEl.textContent = '(' + elapsed + 's)';
+    }, 1000);
+    return { el: li, timer: timer };
+}
+
+function stopHeartbeat(hb) {
+    if (!hb) return;
+    clearInterval(hb.timer);
+    if (hb.el && hb.el.parentNode) hb.el.parentNode.removeChild(hb.el);
+}
+
+// Run a phase: paced entries on a timer, then fire gated entries
+// only after `fetchPromise` settles. Shows a heartbeat if there's a gap.
+async function runPhase(log, paced, gated, paceMs, fetchPromise) {
+    // Track when the fetch settles.
+    let settled = false;
+    fetchPromise.then(function () { settled = true; }, function () { settled = true; });
+
+    // Play paced entries one at a time.
+    for (let i = 0; i < paced.length; i++) {
+        appendEntry(log, paced[i]);
+        // Don't pace after the last paced entry — go straight into heartbeat / gated.
+        if (i < paced.length - 1) {
+            await sleep(paceMs);
+        }
+    }
+
+    // If the fetch hasn't returned yet, show heartbeat after a short delay.
+    let hb = null;
+    if (!settled) {
+        await sleep(HEARTBEAT_AFTER_MS);
+        if (!settled) hb = startHeartbeat(log);
+    }
+
+    // Wait for the fetch to actually return.
+    const result = await fetchPromise.catch(function (e) { return { error: 'Network error: ' + e.message }; });
+    stopHeartbeat(hb);
+
+    // Fire gated entries, paced lightly so they read sequentially.
+    for (let i = 0; i < gated.length; i++) {
+        appendEntry(log, gated[i]);
+        if (i < gated.length - 1) await sleep(GATED_PACE_MS);
+    }
+
+    return result;
+}
+
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+function paintAgent1Skeleton() {
+    const tpl = document.getElementById('agent1-skeleton-template');
+    if (!tpl) return;
+    rightPane.innerHTML = tpl.innerHTML;
+    rightPane.scrollTop = 0;
+}
+
+function injectQaSkeleton() {
+    // Called at Phase 2 start. The right pane already contains Agent 1's real
+    // surface and an empty #qa-region (rendered by right_pane.html for synthesis).
+    const qaRegion = document.getElementById('qa-region');
+    const tpl = document.getElementById('qa-skeleton-template');
+    if (!qaRegion || !tpl) return;
+    qaRegion.innerHTML = tpl.innerHTML;
+}
+
+function appendEntry(log, entry) {
+    const ul = log.querySelector('.activity-entries');
+    const li = document.createElement('li');
+    li.className = 'activity-entry' + (entry.cls ? ' ' + entry.cls : '');
+    li.textContent = entry.text;
+    ul.appendChild(li);
+    scrollChatToBottom();
+}
+
+function setLogSummary(log, text) {
+    log.querySelector('.log-summary-text').textContent = text;
+}
+
+function stopLogTimers(log) {
+    if (log && log._dotsTimer) { clearInterval(log._dotsTimer); log._dotsTimer = null; }
+}
+
+function finalize(log, totalSteps) {
+    stopLogTimers(log);
+    setLogSummary(log, 'Activity log · ' + totalSteps + ' step' + (totalSteps === 1 ? '' : 's'));
+    log.open = false;
+    submitBtn.disabled = false;
+    ta.focus();
+    scrollChatToBottom();
+}
+
+function showError(log, turn, message) {
+    stopLogTimers(log);
+    const err = document.createElement('div');
+    err.className = 'error';
+    err.textContent = message;
+    turn.appendChild(err);
+    setLogSummary(log, 'Activity log · failed');
+    log.open = false;
+    submitBtn.disabled = false;
+    ta.focus();
+    scrollChatToBottom();
+}
+
+async function submit(text) {
+    if (submitBtn.disabled) return;  // guard against re-entry
+    submitBtn.disabled = true;
+
+    // Paint the bubble, then clear the textarea immediately — the text now
+    // lives in the bubble and the input is ready for the next message.
+    const turn = newTurn(text);
+    ta.value = '';
+    ta.style.height = 'auto';
+
+    // Paint just the Agent 1 skeleton into the right pane right now. We
+    // don't yet know if QA will run (CHALLENGE / INTAKE turns skip Agent 2),
+    // so the QA skeleton is held back until Phase 2 actually begins.
+    paintAgent1Skeleton();
+
+    const log = newActivityLog(turn);
+    const phase1Steps = PHASE1_PACED.length + PHASE1_GATED.length;
+
+    // === Phase 1: Agent 1 =====
+    const askPromise = fetch('/ask', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'question=' + encodeURIComponent(text),
+    }).then(function (r) { return r.json(); });
+
+    const result = await runPhase(log, PHASE1_PACED, PHASE1_GATED, PHASE1_PACE_MS, askPromise);
+
+    if (result.error) {
+        showError(log, turn, result.error);
+        return;
+    }
+
+    // Swap the skeleton for the real Agent 1 surface. For synthesis,
+    // right_pane_html already contains the qa_skeleton inside #qa-region.
+    if (result.right_pane_html) {
+        rightPane.innerHTML = result.right_pane_html;
+        rightPane.scrollTop = 0;
+    }
+    if (result.chat_html) {
+        const container = document.createElement('div');
+        container.innerHTML = result.chat_html;
+        while (container.firstChild) turn.appendChild(container.firstChild);
+    }
+    scrollChatToBottom();
+
+    const isSynthesis = (result.response_type === 'EVALUATION' || result.response_type === 'GAP_FLAG');
+    if (!isSynthesis) {
+        finalize(log, phase1Steps);
+        return;
+    }
+
+    // === Phase 2: Agent 2 =====
+    // Inject the QA skeleton at handoff. It appears in #qa-region just as
+    // "Handing off to QA Validation Agent…" lands in the activity log, and
+    // shimmers until the real qa_surface replaces it when /qa returns.
+    injectQaSkeleton();
+
+    const qaPromise = fetch('/qa', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ agent1_xml: result.agent1_xml }),
+    }).then(function (r) { return r.json(); });
+
+    const qaResult = await runPhase(log, PHASE2_PACED, PHASE2_GATED, PHASE2_PACE_MS, qaPromise);
+
+    const qaRegion = document.getElementById('qa-region');
+    if (qaResult.error) {
+        if (qaRegion) {
+            qaRegion.innerHTML =
+                '<div class="agent-divider"><div class="agent-divider-line"></div>' +
+                '<div class="agent-divider-label">↓ Independent QA review ↓</div>' +
+                '<div class="agent-divider-line"></div></div>' +
+                '<div class="sys-msg sys-msg-error" style="margin: 4px 0 0 0;">' +
+                '<div class="sys-msg-label">QA review unavailable</div>' +
+                '<div class="sys-msg-body">' + escapeHtml(qaResult.error) + '</div></div>';
+        }
+    } else if (qaResult.qa_html && qaRegion) {
+        qaRegion.innerHTML = qaResult.qa_html;
+    }
+
+    finalize(log, phase1Steps + PHASE2_PACED.length + PHASE2_GATED.length);
+}
+
+form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (submitBtn.disabled) return;  // guard: blocks Enter-key re-entry too
+    const text = ta.value.trim();
+    if (!text) return;
+    submit(text);
+});
+</script>
+</body>
+</html>

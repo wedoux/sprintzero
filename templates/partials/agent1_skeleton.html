@@ -1,0 +1,48 @@
+{# Agent 1 skeleton: shown immediately when the user submits, before /ask returns.
+   JS swaps the entire right pane innerHTML with the real right_pane.html once /ask
+   resolves. Matches the agent1 surface shape so the swap doesn't reflow visibly. #}
+
+<section class="agent-surface agent1-surface agent1-skeleton-surface">
+  <header class="agent-banner agent1-banner">
+    <div class="agent-name">Agent 1 · Research Copilot</div>
+    <div class="agent-role">primary synthesis</div>
+    <span class="qa-running-pill">
+      <span class="qa-running-dot"></span>
+      Running
+    </span>
+  </header>
+
+  <div class="verdict-banner agent1-skeleton-verdict">
+    <div class="verdict-label">Verdict</div>
+    <div class="skeleton-bar skeleton-bar-verdict"></div>
+    <div class="confidence-row">
+      <div class="skeleton-bar skeleton-bar-confidence-num"></div>
+      <div class="skeleton-bar skeleton-bar-confidence-track"></div>
+      <div class="skeleton-bar skeleton-bar-confidence-num"></div>
+    </div>
+    <div class="agent1-skeleton-summary">
+      <div class="skeleton-bar"></div>
+      <div class="skeleton-bar"></div>
+      <div class="skeleton-bar skeleton-bar-short"></div>
+    </div>
+  </div>
+
+  <div class="spine">
+    <div class="agent1-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-meta"></div>
+    </div>
+    <div class="agent1-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-meta"></div>
+    </div>
+    <div class="agent1-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-meta"></div>
+    </div>
+    <div class="agent1-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-meta"></div>
+    </div>
+  </div>
+</section>

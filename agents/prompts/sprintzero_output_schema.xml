@@ -1,0 +1,1082 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SprintZero - Output Schema
+  Version 1.2 - May 2026 - Niko
+
+  CHANGELOG v1.2
+  - Added qa_review element: appended to SprintZero_response after reframed_insight.
+    Produced by Agent 2 (QA Validation Agent) against the completed Agent 1 output.
+    Contains seven named checks, an overall QA stamp, and a required_action field
+    that specifies what must happen before the verdict can be committed.
+  - Added qa_status to attributes: QA_PENDING | QA_PASSED | QA_FAILED.
+
+  CHANGELOG v1.1
+  - Added project_context element: the structured intake record produced at
+    project creation. All synthesis runs require this to exist before proceeding.
+  - Added process_challenge element: the response type produced when the
+    researcher skips required steps, submits underspecified requests, or
+    attempts synthesis before intake is complete.
+  - Added INTAKE and CHALLENGE to the response_type enum in attributes.
+  - Added context_status to attributes: tracks whether project intake is complete.
+
+  PURPOSE
+  This file defines the required XML structure for every SprintZero response.
+  The AI produces this structure. The application code formats it for display.
+  These two concerns must never be mixed.
+
+  RESPONSE TYPE HIERARCHY
+  Before any evaluation can run, project_context must exist and be COMPLETE.
+  The sequence is:
+    1. INTAKE    - project context is being collected (project_context element)
+    2. CHALLENGE - researcher has skipped a required step or submitted an
+                   underspecified request (process_challenge element)
+    3. EVALUATION / GAP_FLAG / REFUSAL / PARTIAL - synthesis responses,
+                   only valid when context_status = COMPLETE
+
+  RULES
+  - Every field marked required="true" must be populated before a response is valid.
+  - Fields marked required="false" are conditionally required: if the trigger
+    condition is met, the field becomes required. Omitting it is a protocol violation.
+  - The application layer reads this schema to render output. Do not add display
+    logic here. Do not add rendering hints here. This is structure only.
+  - The AI must not invent fields not present in this schema.
+  - The AI must not omit required fields even if it judges the content to be obvious.
+  - No synthesis response (EVALUATION, GAP_FLAG, REFUSAL, PARTIAL) may be
+    produced while context_status = INCOMPLETE or ABSENT.
+  - The AI must emit raw XML only. The response must begin with the
+    <SprintZero_response> opening tag and end with the </SprintZero_response>
+    closing tag. Do not wrap the response in Markdown code fences (such as
+    triple-backtick xml). Do not prefix the response with explanatory prose.
+    Do not append commentary after the closing tag.
+  - The <qa_review> element is populated exclusively by the QA Validation
+    Agent (Agent 2). Agent 1 must never emit it — not empty, not with
+    placeholders, not at all. The "required" status on qa_review means the
+    element must exist in the final document when response_type is EVALUATION
+    or GAP_FLAG; Agent 2 appends it, Agent 1 omits it. Agent 1 producing a
+    qa_review collapses the two-agent split and is a protocol violation.
+  - The <qa_status> attribute is set by Agent 1 to QA_PENDING (for EVALUATION
+    or GAP_FLAG) or QA_NOT_APPLICABLE (for INTAKE, CHALLENGE, REFUSAL, or
+    PARTIAL). Agent 2 updates it to QA_PASSED or QA_FAILED after running its
+    checks. Agent 1 must never set QA_PASSED or QA_FAILED.
+-->
+
+<SprintZero_schema version="1.0">
+
+  <!--
+    ROOT ELEMENT
+    Every SprintZero response is wrapped in SprintZero_response.
+    The query_id ties the response to a specific researcher prompt.
+  -->
+
+  <SprintZero_response>
+
+    <!-- RESPONSE METADATA -->
+    <attributes required="true">
+
+      <query_id required="true">
+        <!-- Unique identifier for this response. Format: SZ-[YYYYMMDD]-[NNN] -->
+        <!-- Example: SZ-20260514-001 -->
+      </query_id>
+
+      <corpus_ids required="true">
+        <!-- Comma-separated IDs of all corpora consulted.
+             Must reference registered Registry IDs only.
+             For INTAKE and CHALLENGE responses, state: "intake - no corpus consulted"
+             Example: S-001, A-001, C-001 -->
+      </corpus_ids>
+
+      <framework_version required="true">
+        <!-- Version of the Framework RAG used for this evaluation.
+             Example: A-001 v1.2 -->
+      </framework_version>
+
+      <context_status required="true">
+        <!-- One of: ABSENT | INCOMPLETE | COMPLETE
+             ABSENT     - no project_context exists for this project. Intake has
+                          not been started. No synthesis response may be produced.
+             INCOMPLETE - project_context exists but one or more required fields
+                          are missing or marked SKIPPED. Synthesis is blocked until
+                          resolved. A CHALLENGE response is produced instead.
+             COMPLETE   - all required project_context fields are present and
+                          accepted by the researcher. Synthesis may proceed. -->
+      </context_status>
+
+      <qa_status required="true">
+        <!-- One of: QA_PENDING | QA_PASSED | QA_FAILED | QA_NOT_APPLICABLE
+             Authorship:
+               QA_PENDING        - set by Agent 1 for EVALUATION or GAP_FLAG.
+                                   Verdict must not be committed in this state.
+               QA_PASSED         - set by Agent 2 after running its seven checks
+                                   with no blocking findings. Verdict may be committed.
+               QA_FAILED         - set by Agent 2 when one or more checks fail.
+                                   The qa_review element contains the findings and
+                                   required_action. Verdict is blocked until resolved.
+               QA_NOT_APPLICABLE - set by Agent 1 for INTAKE, CHALLENGE, REFUSAL, or
+                                   PARTIAL responses. No synthesis output exists to review. -->
+      </qa_status>
+
+      <response_type required="true">
+        <!-- One of: INTAKE | CHALLENGE | EVALUATION | GAP_FLAG | REFUSAL | PARTIAL
+             INTAKE      - project context is being collected for the first time.
+                           The project_context element is the primary payload.
+                           No synthesis fields are populated.
+             CHALLENGE   - researcher has submitted a request that cannot be
+                           processed as-is. The process_challenge element explains
+                           what is missing and what is required before proceeding.
+                           No synthesis fields are populated.
+             EVALUATION  - full verdict produced, evidence base adequate,
+                           context_status = COMPLETE.
+             GAP_FLAG    - verdict produced but one or more corpus gaps flagged.
+                           context_status = COMPLETE.
+             REFUSAL     - evidence base structurally absent, verdict refused.
+                           context_status = COMPLETE.
+             PARTIAL     - verdict produced for subset of query only.
+                           context_status = COMPLETE. -->
+      </response_type>
+
+    </attributes>
+
+    <!--
+      PROJECT CONTEXT
+      The structured intake record for this project. Produced once at project
+      creation in response to the intake protocol. Stored as the Context RAG
+      for all subsequent synthesis runs in this project.
+
+      This element is the primary payload of an INTAKE response.
+      It is also included (read-only) in all subsequent EVALUATION, GAP_FLAG,
+      REFUSAL, and PARTIAL responses so the synthesis agent always has the
+      full project context visible in the same document.
+
+      GATE: No synthesis response may be produced until this element exists
+      and all required fields are COMPLETE. If the researcher attempts to
+      submit a theme before intake is complete, produce a CHALLENGE response
+      referencing the specific missing fields.
+
+      Fields marked required="false" are genuinely optional — the system
+      proceeds without them. But if the researcher writes SKIPPED or leaves
+      them empty without explanation, the system prompts once for a reason
+      before accepting the omission.
+    -->
+    <project_context required="true" trigger="response_type = INTAKE or context_status = COMPLETE">
+
+      <project_name required="true">
+        <!-- The name or working title of the research project.
+             Example: "Weather Underground — Trust & Data Freshness Study" -->
+      </project_name>
+
+      <project_type required="true">
+        <!-- One of: NEW_PRODUCT | EXISTING_PRODUCT_REDESIGN | EXISTING_PRODUCT_ITERATION | UNKNOWN
+             This determines what "insight" means in this context.
+             NEW_PRODUCT          - no prior user base. Insights are discovery-mode.
+                                    No "what users are used to" baseline exists.
+             EXISTING_PRODUCT_REDESIGN - substantial change to an established product.
+                                    Prior behaviour patterns and mental models are
+                                    relevant. Insights must account for transition friction.
+             EXISTING_PRODUCT_ITERATION - incremental improvement. Prior insights
+                                    and validated hypotheses are directly relevant.
+                                    Contradictions with prior findings must be flagged.
+             UNKNOWN              - researcher cannot determine type. System notes this
+                                    as a context gap and flags which evaluation steps
+                                    it affects. -->
+      </project_type>
+
+      <research_objective required="true">
+        <!-- What specific question is this research trying to answer?
+             Must be narrow enough to scope what "relevant" means for retrieval.
+             BAD:  "Understand user experience."
+             GOOD: "Determine whether reported forecast inaccuracy is a model
+                    problem or a data freshness problem, and which engineering
+                    workstream should own the fix."
+             If the researcher cannot state a specific objective, produce a
+             CHALLENGE response before proceeding. A project without an objective
+             cannot have its insights evaluated for decision relevance. -->
+      </research_objective>
+
+      <business_decisions_pending required="true">
+        <!-- What product or business decisions are waiting on this research?
+             This is the primary input to the decision_support field in evaluations.
+             If no decisions are pending, the research has no decision context and
+             the system flags this explicitly in every verdict it produces.
+             Example: "Whether to invest engineering resources in forecast model
+             accuracy vs. data pipeline and cache infrastructure." -->
+      </business_decisions_pending>
+
+      <prior_research_and_insights required="false">
+        <!-- What has already been studied? What insights have already been validated?
+             What hypotheses have been invalidated?
+             Addresses P-02 Context Blindness: the system must not rediscover what
+             is already known, and must flag contradictions with prior findings.
+             If prior research exists but has not been summarised here, the system
+             flags this as a CONTEXT_GAP in every evaluation it produces.
+             Format: free text. One paragraph per prior study or insight set.
+             Example: "2024 usability study confirmed navigation IA is a secondary
+             complaint. Primary trust driver was identified as data accuracy but
+             not further specified. That study did not distinguish between model
+             accuracy and data freshness." -->
+      </prior_research_and_insights>
+
+      <target_market required="true">
+        <!-- Who is the product designed for? Geography, platform, user segment.
+             This is the primary input to the transfer assumption check.
+             Be specific: vague targets produce vague transfer verdicts.
+             Example: "US-based iOS users who check weather daily for commute
+             and outdoor activity planning. Predominantly urban and suburban." -->
+      </target_market>
+
+      <known_constraints required="false">
+        <!-- Organisational, technical, or regulatory constraints the research
+             must work within. These scope what the system can recommend.
+             Example: "Engineering team has a 6-week sprint available. Backend
+             infrastructure changes require a separate approval cycle.
+             EU launch is not in scope for the current product cycle." -->
+      </known_constraints>
+
+      <primary_stakeholder required="false">
+        <!-- Who will act on the research findings?
+             Affects how the decision_support field is framed in evaluations.
+             Example: "Head of Product and the iOS Engineering Lead. Both need
+             different framings: one needs the business case, one needs the
+             technical diagnosis." -->
+      </primary_stakeholder>
+
+      <context_completeness required="true">
+        <!-- One of: COMPLETE | INCOMPLETE
+             Set by the system after reviewing all required fields.
+             COMPLETE   - all required fields present and accepted.
+             INCOMPLETE - one or more required fields missing. Lists which fields
+                          are outstanding. Synthesis is blocked until resolved.
+             The researcher may mark a required field as explicitly-not-applicable
+             with a reason. The system accepts this and sets completeness to COMPLETE
+             if all other required fields are present. -->
+      </context_completeness>
+
+    </project_context>
+
+    <!--
+      PROCESS CHALLENGE
+      Produced when the researcher submits a request that cannot be processed
+      as-is. This is not an error message — it is a structured pushback that
+      names exactly what is missing and what is required before the system
+      can proceed.
+
+      Challenge responses are specific, not generic. "Please provide more
+      context" is not a valid challenge. The challenge must name the exact
+      field or step that is missing, explain why it matters for the specific
+      request submitted, and state what the researcher needs to provide.
+
+      This element is the primary payload of a CHALLENGE response.
+      It is never produced alongside a synthesis verdict — a CHALLENGE
+      response halts the evaluation loop entirely.
+
+      CHALLENGE triggers (system checks these in order before evaluating):
+      1. context_status = ABSENT or INCOMPLETE
+      2. Theme submitted with no corpus loaded
+      3. Insight scope wider than corpus population with no transfer
+         acknowledgement from the researcher
+      4. Confidence requested on single-source evidence without
+         researcher acknowledging the source diversity limitation
+      5. Contradiction flagged as CONFLICTED in a prior run, tacit
+         knowledge prompt not yet answered, researcher attempts to
+         commit the verdict anyway
+      6. Request references a population, geography, or time period
+         with no registered corpus and no gap acknowledgement
+    -->
+    <process_challenge required="false" trigger="response_type = CHALLENGE">
+
+      <challenge_type required="true">
+        <!-- One of:
+             INTAKE_INCOMPLETE    - project context missing or incomplete.
+                                    Synthesis cannot begin.
+             NO_CORPUS            - theme submitted but no corpus is loaded
+                                    for this project. Nothing to evaluate against.
+             SCOPE_OVERREACH      - insight claims a population wider than the
+                                    corpus represents. Transfer assumption not
+                                    acknowledged.
+             SINGLE_SOURCE_RISK   - confidence requested but all evidence is
+                                    from one source type. Researcher must
+                                    acknowledge before proceeding.
+             CONFLICT_UNRESOLVED  - a prior CONFLICTED verdict exists on this
+                                    insight. Tacit knowledge prompt has not been
+                                    answered. Cannot commit verdict.
+             UNDERSPECIFIED_THEME - theme as submitted is a surface label with
+                                    no behavioural mechanism. System cannot
+                                    evaluate it as stated.
+             MISSING_OBJECTIVE    - research objective not set. System cannot
+                                    assess decision relevance of any verdict. -->
+      </challenge_type>
+
+      <what_was_submitted required="true">
+        <!-- Reproduce the researcher's request verbatim.
+             The challenge must be anchored to exactly what they submitted,
+             not a paraphrase of it. -->
+      </what_was_submitted>
+
+      <why_it_cannot_proceed required="true">
+        <!-- Specific explanation of why this request cannot be evaluated.
+             Must reference the exact missing element, not a general rule.
+             BAD:  "Project context is required before synthesis can begin."
+             GOOD: "You have submitted a theme about forecast trust, but no
+                    research objective has been set for this project. Without
+                    knowing what decision this research is meant to inform,
+                    the system cannot assess whether a verdict on this theme
+                    would change or enable any decision. A verdict without
+                    a decision context is not an evaluation — it is a summary." -->
+      </why_it_cannot_proceed>
+
+      <what_is_required required="true">
+        <!-- Exactly what the researcher needs to provide before the system
+             can proceed. Specific fields, specific format, specific scope.
+             If the intake protocol is the block, list only the missing fields —
+             not the entire intake form again.
+             Example: "Provide: (1) research_objective — what specific question
+             is this study answering? (2) business_decisions_pending — what
+             engineering or product decision is waiting on this finding?" -->
+      </what_is_required>
+
+      <what_system_can_do_now required="false">
+        <!-- If there is anything useful the system can offer while the
+             researcher resolves the block, state it here.
+             Do not produce a degraded evaluation. But the system may offer:
+             - to show which intake fields are still outstanding
+             - to explain what each missing field affects in the evaluation
+             - to describe what the corpus currently contains if one is loaded
+             Example: "While you complete the intake, I can show you the 13
+             evidence units currently loaded in S-001 and the signal tags
+             assigned to each. This may help you frame the research objective." -->
+      </what_system_can_do_now>
+
+    </process_challenge>
+
+    <!-- THE INSIGHT UNDER EVALUATION -->
+    <insight_under_evaluation required="true">
+
+      <original_theme required="true">
+        <!-- Exact wording of the theme or insight as the researcher stated it.
+             Do not paraphrase. Do not improve. Reproduce verbatim. -->
+      </original_theme>
+
+      <submitted_by required="false">
+        <!-- Researcher name or identifier, if provided -->
+      </submitted_by>
+
+    </insight_under_evaluation>
+
+    <!--
+      BEHAVIOURAL MECHANISM
+      Required for all EVALUATION and GAP_FLAG responses.
+      Addresses P-01 Headline Generality: surface labels are not insights.
+      Every evaluation must identify the specific behaviour, its trigger,
+      and its consequence. A verdict cannot be committed without this field.
+    -->
+    <behavioural_mechanism required="true" trigger="response_type != REFUSAL">
+
+      <behaviour required="true">
+        <!-- What is the specific user behaviour this insight describes?
+             Must name an observable action, not a sentiment or attitude.
+             BAD:  "Users distrust the app."
+             GOOD: "Users open a second weather app before committing to
+                    outdoor plans when the stakes are high." -->
+      </behaviour>
+
+      <trigger_condition required="true">
+        <!-- What causes this behaviour to occur?
+             Must be specific and falsifiable.
+             BAD:  "When they don't trust the data."
+             GOOD: "When the displayed temperature contradicts their
+                    recent physical experience of the weather." -->
+      </trigger_condition>
+
+      <consequence required="true">
+        <!-- What is the product or decision consequence of this behaviour?
+             Must connect to a product decision or engineering workstream.
+             BAD:  "Users are frustrated."
+             GOOD: "The cross-check behaviour bypasses the app's forecast
+                    entirely, making forecast model investment irrelevant
+                    to the trust problem." -->
+      </consequence>
+
+    </behavioural_mechanism>
+
+    <!-- VERDICT -->
+    <verdict required="true">
+
+      <classification required="true">
+        <!-- One of: STRONG | UNCERTAIN | WEAK
+             STRONG    - multiple corroborating sources, no unresolved
+                         contradictions, evidence directly supports theme
+             UNCERTAIN - limited evidence, single source, or conflicting
+                         signals present
+             WEAK      - theme contradicted by corpus, or evidence base
+                         insufficient to evaluate -->
+      </classification>
+
+      <confidence_score required="true">
+        <!-- Numeric score 0.00-0.95. Calculated per Framework RAG scoring rules.
+             Must reflect source diversity penalty if applicable.
+             Format: decimal to two places. Example: 0.72 -->
+      </confidence_score>
+
+      <stability_status required="true">
+        <!-- One of: STABLE | EMERGING | CONFLICTED
+             STABLE     - confidence >= 0.70, multiple sources, no contradictions
+             EMERGING   - confidence 0.35-0.69, limited corroboration
+             CONFLICTED - contradiction detected, confidence frozen -->
+      </stability_status>
+
+      <one_line_verdict required="true">
+        <!-- A single sentence stating the verdict in plain language.
+             Written for a product stakeholder, not a researcher.
+             Must be specific enough to drive a decision.
+             BAD:  "The evidence partially supports this theme."
+             GOOD: "What users are reporting as forecast inaccuracy is a
+                    stale data / cache invalidation bug - investing in
+                    forecast model accuracy will not fix this." -->
+      </one_line_verdict>
+
+    </verdict>
+
+    <!--
+      EVIDENCE CHAIN
+      Every claim in the reasoning must be anchored to a named evidence unit.
+      The AI must not produce reasoning that cannot be traced to corpus IDs.
+    -->
+    <evidence_chain required="true">
+
+      <corroborating_evidence required="true" trigger="classification != WEAK">
+        <!-- List each evidence unit that supports the verdict.
+             Each unit must include its ID and a one-line summary of its signal. -->
+        <unit>
+          <id><!-- e.g. R05 --></id>
+          <signal><!-- What this unit contributes to the verdict --></signal>
+        </unit>
+        <!-- Repeat unit for each corroborating piece of evidence -->
+      </corroborating_evidence>
+
+      <counter_signals required="true">
+        <!-- List each evidence unit that contradicts or complicates the verdict.
+             Required even if verdict is STRONG - absence of counter-signals
+             must be stated explicitly, not left implicit.
+             If no counter-signals exist, state: "No counter-signals identified
+             in corpus [ID]. Absence noted." -->
+        <unit>
+          <id><!-- e.g. R03 --></id>
+          <signal><!-- What this unit challenges or complicates --></signal>
+        </unit>
+      </counter_signals>
+
+      <source_diversity required="true">
+        <!-- State the source types present in the evidence chain.
+             Example: "App Store reviews only (S-001). No interview or
+             survey corroboration. Homogeneous source penalty applied." -->
+      </source_diversity>
+
+    </evidence_chain>
+
+    <!--
+      REASONING STEP
+      The explicit chain of inference that produced the verdict.
+      This is not a summary. It is the argument.
+      Addresses P-07 Trust Without Process: the reasoning must be
+      visible and auditable, not reconstructed after the fact.
+    -->
+    <reasoning_step required="true">
+
+      <proposed_classification required="true">
+        <!-- Restate the classification with the reasoning that produced it.
+             Format: "Classified as [X] because [specific logical chain]." -->
+      </proposed_classification>
+
+      <counter_consideration required="true">
+        <!-- What is the strongest argument against this classification?
+             Must engage with the actual counter-signals, not dismiss them.
+             If no counter-argument exists, explain why the corpus is
+             unusually one-directional and flag this as a potential gap. -->
+      </counter_consideration>
+
+      <classification_commitment required="true">
+        <!-- State the final classification and why the counter-consideration
+             does not overturn it. Or, if it does, revise the classification
+             and explain the revision. -->
+      </classification_commitment>
+
+    </reasoning_step>
+
+    <!--
+      FALSIFICATION ATTEMPT
+      Required for all EVALUATION responses.
+      The system must attempt to disprove the verdict before committing it.
+      A verdict that has not been challenged is not a verdict - it is a summary.
+    -->
+    <falsification_attempt required="true" trigger="response_type = EVALUATION or GAP_FLAG">
+
+      <falsification_query required="true">
+        <!-- State the specific question asked to attempt falsification.
+             Example: "Is there any evidence in the corpus that users
+             explicitly praise forecast accuracy, which would contradict
+             the stale data classification?" -->
+      </falsification_query>
+
+      <falsification_result required="true">
+        <!-- One of: FALSIFICATION_FAILED | FALSIFICATION_SUCCEEDED | INCONCLUSIVE
+             FALSIFICATION_FAILED    - attempted to falsify, could not. Verdict stands.
+             FALSIFICATION_SUCCEEDED - falsification evidence found. Verdict revised.
+             INCONCLUSIVE            - evidence ambiguous. Stability set to CONFLICTED. -->
+      </falsification_result>
+
+      <falsification_evidence required="true">
+        <!-- Cite the evidence unit(s) consulted in the falsification attempt.
+             If falsification failed, explain why the counter-evidence
+             does not overturn the verdict. -->
+      </falsification_evidence>
+
+    </falsification_attempt>
+
+    <!--
+      TRANSFER ASSUMPTION CHECK
+      Required whenever the query touches a market or user population
+      not directly represented in the corpus.
+      Must be substantive - not a boilerplate flag.
+      Testing finding: all models flagged EU transfer formulaically.
+      The system must argue the assumption, not just acknowledge it.
+    -->
+    <transfer_assumption_check required="false" trigger="query references population not in corpus">
+
+      <corpus_population required="true">
+        <!-- Who does the current corpus actually represent?
+             Be specific: geography, platform, time period, user segment.
+             Example: "US App Store reviewers, May 2024-May 2026,
+             self-selected motivated users." -->
+      </corpus_population>
+
+      <target_population required="true">
+        <!-- Who does the query or insight claim to apply to?
+             Example: "EU users of Weather Underground." -->
+      </target_population>
+
+      <structural_risks required="true">
+        <!-- Why might the transfer be unsafe?
+             Must name specific structural differences, not generic caveats.
+             BAD:  "Different regions may have different behaviours."
+             GOOD: "EU users have lower PWS density, stronger national met
+                    services (MeteoSwiss, DWD, Météo-France) as credible
+                    alternatives, and a different severe weather severity
+                    profile. Trust formation may follow a different path." -->
+      </structural_risks>
+
+      <transfer_verdict required="true">
+        <!-- One of: TRANSFER_UNSAFE | TRANSFER_UNCERTAIN | TRANSFER_PLAUSIBLE
+             With a one-sentence rationale. -->
+      </transfer_verdict>
+
+      <corpus_required required="true">
+        <!-- Exactly what corpus would need to exist to answer the transfer
+             question with confidence? Name source type, geography, and
+             minimum evidence volume.
+             Example: "EU App Store reviews for Weather Underground,
+             minimum 10 units, covering DE/FR/CH markets." -->
+      </corpus_required>
+
+    </transfer_assumption_check>
+
+    <!--
+      GAP FLAGS
+      Required whenever evidence is absent, thin, or structurally missing.
+      Gap flags are never silent. Every unanswerable question must name
+      the corpus that would make it answerable.
+    -->
+    <gap_flags required="false" trigger="response_type = GAP_FLAG or REFUSAL or PARTIAL">
+
+      <gap>
+        <gap_type required="true">
+          <!-- One of: MISSING_CORPUS | THIN_EVIDENCE | GEOGRAPHY_GAP |
+                       SOURCE_TYPE_GAP | TEMPORAL_GAP | POPULATION_GAP -->
+        </gap_type>
+        <gap_description required="true">
+          <!-- What specifically is missing and why it matters for this query. -->
+        </gap_description>
+        <corpus_required required="true">
+          <!-- Exactly what corpus would resolve this gap.
+               Format: [Source type] - [Geography/scope] - [Min volume]
+               Example: User interview transcripts - EU (DE/FR/CH) - 8+ sessions -->
+        </corpus_required>
+        <registry_entry_to_create required="false">
+          <!-- If a Registry slot should be created to track this gap,
+               suggest the ID and collection tier.
+               Example: C-001 (Contextual - domain_weather_eu) -->
+        </registry_entry_to_create>
+      </gap>
+      <!-- Repeat gap for each identified gap -->
+
+    </gap_flags>
+
+    <!--
+      TACIT KNOWLEDGE PROMPT
+      This field creates structured space for researcher judgment to enter the record.
+      It is not optional when a verdict is committed.
+      Addresses P-03 Transcript Literalism and Step 8 of the Incremental Synthesis workflow.
+      The application layer must render this prominently - not buried.
+    -->
+    <tacit_knowledge_prompt required="true" trigger="response_type = EVALUATION or GAP_FLAG">
+
+      <prompt_text required="true">
+        <!-- A specific question for the researcher about what the corpus might
+             not contain. Not generic. Derived from the specific verdict and
+             evidence gaps identified above.
+             BAD:  "Is there anything else you know from the research?"
+             GOOD: "R03 praises forecast accuracy while all other trust signals
+                    point to stale data. Were there any session moments - a
+                    hesitation, a correction, a follow-up - that would help
+                    resolve whether R03 is a genuine outlier or a misrecorded
+                    signal?" -->
+      </prompt_text>
+
+      <confidence_impact required="true">
+        <!-- How would a tacit knowledge annotation affect the confidence score?
+             Example: "A researcher annotation confirming the stale data
+             interpretation would raise confidence from 0.71 to 0.86
+             (researcher-confirmed modifier: +0.15)." -->
+      </confidence_impact>
+
+    </tacit_knowledge_prompt>
+
+    <!--
+      DECISION SUPPORT
+      The insight's practical implication for product decisions.
+      Addresses the decision-change vs decision-enable distinction
+      specified in the Framework RAG.
+    -->
+    <decision_support required="true" trigger="response_type = EVALUATION or GAP_FLAG">
+
+      <decision_this_changes required="false">
+        <!-- A decision the team might currently be pursuing that this
+             verdict should stop or redirect.
+             Example: "Investment in improving the forecast model accuracy
+             pipeline. This verdict redirects that investment to cache
+             invalidation logic." -->
+      </decision_this_changes>
+
+      <decision_this_enables required="false">
+        <!-- A decision the team can now make with confidence.
+             Example: "The engineering team can now investigate cache
+             TTL and data freshness infrastructure as the proximate
+             cause of reported inaccuracy." -->
+      </decision_this_enables>
+
+      <decision_this_cannot_support required="true">
+        <!-- What decision cannot be made on this evidence alone?
+             This field prevents overreach.
+             Example: "Whether EU users experience the same stale data
+             pattern. The corpus does not contain EU evidence." -->
+      </decision_this_cannot_support>
+
+    </decision_support>
+
+    <!--
+      REFRAMED INSIGHT
+      If the verdict reclassifies or materially reframes the original theme,
+      provide the revised insight wording here.
+      Every word must be traceable to at least one evidence unit.
+      The AI cannot introduce claims not present in the corpus.
+    -->
+    <reframed_insight required="false" trigger="verdict differs materially from original_theme">
+
+      <proposed_wording required="true">
+        <!-- The revised insight statement. Specific, behavioural, falsifiable.
+             Example: "Users experiencing apparent forecast inaccuracy in WU
+             are most likely seeing cached stale data rather than a model
+             error - the underlying forecast accuracy is defended even by
+             dissatisfied users (R03)." -->
+      </proposed_wording>
+
+      <diff_summary required="true">
+        <!-- One sentence describing what changed and why.
+             Example: "Reframe: from forecast model failure to cache
+             invalidation bug. Driven by R03 counter-signal and
+             behavioural pattern in R05, R09, R13." -->
+      </diff_summary>
+
+      <evidence_ids required="true">
+        <!-- All evidence IDs that support the proposed wording. -->
+      </evidence_ids>
+
+    </reframed_insight>
+
+    <!--
+      QA REVIEW
+      Produced by Agent 2 (QA Validation Agent) after Agent 1 has completed
+      its response. Agent 2 receives the full SprintZero_response as input
+      and appends this element to it. The researcher sees one document:
+      Agent 1 output followed by Agent 2 verdict.
+
+      Agent 2 is adversarial by design. Its assumption on every run is that
+      Agent 1 has made at least one error. It looks for that error before
+      confirming anything. If it finds nothing to challenge, it says so
+      explicitly and explains why the output is unusually clean.
+
+      QA GATE: A verdict with qa_status = QA_PENDING or QA_FAILED must not
+      be committed to the insight graph. The researcher review layer (Step 8)
+      must show the QA stamp prominently - not buried below the evaluation.
+
+      AGENT 2 SCOPE: Agent 2 reviews Agent 1 output only. It does not
+      re-run the evaluation. It does not consult the corpus independently.
+      It reads the reasoning Agent 1 produced and tests whether that reasoning
+      holds. If Agent 2 needs to cite a corpus unit, it uses the IDs already
+      present in Agent 1 output - it does not retrieve new ones.
+      Exception: the transfer_assumption check, where Agent 2 may draw on
+      the Context RAG (domain knowledge files) to test whether Agent 1 s
+      structural risk analysis was substantive or formulaic.
+
+      SEVEN CHECKS: Agent 2 runs all seven checks on every EVALUATION or
+      GAP_FLAG response. A skipped check must be labelled SKIPPED with a
+      reason - not silently omitted.
+    -->
+    <qa_review required="false" trigger="appended by Agent 2 when response_type = EVALUATION or GAP_FLAG; Agent 1 omits">
+
+      <qa_agent_version required="true">
+        <!-- Version of the QA agent protocol used. References A-007.
+             Example: A-007 v1.0 -->
+      </qa_agent_version>
+
+      <qa_timestamp required="true">
+        <!-- ISO 8601 timestamp of when Agent 2 ran.
+             Example: 2026-05-14T14:33:00Z -->
+      </qa_timestamp>
+
+      <!--
+        CHECK 1 - REASONING VALIDITY
+        Does the reasoning_step in Agent 1 output actually argue the verdict,
+        or does it assert it? An assertion states the conclusion. An argument
+        shows the inferential steps that produced it.
+
+        What Agent 2 looks for:
+        - Does proposed_classification explain WHY, not just WHAT?
+        - Does counter_consideration genuinely engage the counter-signal,
+          or does it dismiss it with a single sentence?
+        - Does classification_commitment explain why the counter-consideration
+          fails to overturn the verdict - or does it just restate the verdict?
+
+        Canonical failure: "Classified as WEAK because the evidence does
+        not support the theme." That is the conclusion restated, not reasoned.
+      -->
+      <check_reasoning_validity required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE
+               PASS          - reasoning is a genuine argument, not an assertion.
+               FAIL          - reasoning asserts the verdict without deriving it,
+                               or counter-consideration is dismissed not argued.
+               PASS_WITH_NOTE - reasoning is adequate but one step is weaker.
+                               Note specifies which step and why. -->
+        </verdict>
+
+        <finding required="true">
+          <!-- Specific, quoted reference to Agent 1 reasoning under review.
+               Do not paraphrase - cite exact text.
+               If FAIL: quote the assertion and state what a valid argument
+               would have required instead.
+               If PASS: quote the strongest inferential step and confirm it holds. -->
+        </finding>
+
+      </check_reasoning_validity>
+
+      <!--
+        CHECK 2 - COUNTER-SIGNAL ENGAGEMENT
+        Agent 1 must list counter-signals. But listing is not engaging.
+        This check tests whether counter-signals were genuinely reasoned
+        against or merely acknowledged and set aside.
+
+        What Agent 2 looks for:
+        - Is each counter-signal in Agent 1 counter_signals accounted
+          for in the reasoning_step?
+        - Is the reason for discounting each one stated explicitly?
+
+        Canonical failure from SprintZero testing: R03 is cited as a
+        counter-signal, but the reasoning proceeds as if it does not exist.
+        Listed for compliance, not engaged for truth.
+      -->
+      <check_counter_signal_engagement required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE -->
+        </verdict>
+
+        <finding required="true">
+          <!-- For each counter-signal in Agent 1 output: state whether it was
+               genuinely argued against or merely noted. Quote the relevant
+               passage from Agent 1 reasoning_step.
+               If any counter-signal was listed but not argued: FAIL.
+               State which unit, what the signal was, and what genuine
+               engagement would have required. -->
+        </finding>
+
+      </check_counter_signal_engagement>
+
+      <!--
+        CHECK 3 - CONFIDENCE SCORE INTEGRITY
+        The confidence score must reflect source diversity rules.
+        Volume of evidence does not equal strength of evidence.
+
+        What Agent 2 looks for:
+        - If all corroborating evidence is from one source type: has the
+          homogeneous source penalty been applied?
+        - If score is >= 0.70 (STABLE threshold): is there genuine
+          cross-source corroboration, or single-source volume?
+        - Does source_diversity in Agent 1 match the actual evidence list?
+        - Is the confidence ceiling of 0.95 respected?
+      -->
+      <check_confidence_integrity required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE -->
+        </verdict>
+
+        <finding required="true">
+          <!-- State the source types in Agent 1 corroborating_evidence.
+               State whether homogeneous source penalty applies.
+               State the correct score if Agent 1 score is wrong. Show arithmetic.
+               Example: "All 4 corroborating units are App Store reviews (S-001).
+               Homogeneous source penalty applies: -0.10. Agent 1 scored 0.74.
+               Correct score: 0.64. Stability should be EMERGING not STABLE.
+               Blocking finding." -->
+        </finding>
+
+        <corrected_score required="false" trigger="verdict = FAIL">
+          <!-- The score Agent 2 calculates as correct, per Framework RAG rules.
+               Format: decimal to two places. Example: 0.64 -->
+        </corrected_score>
+
+      </check_confidence_integrity>
+
+      <!--
+        CHECK 4 - TRANSFER ASSUMPTION DEPTH
+        All models in SprintZero testing flagged EU transfer correctly but
+        formulaically. This check catches that failure specifically.
+        A transfer check that names geography but does not argue structural
+        differences is a label, not a check.
+
+        What Agent 2 looks for:
+        - Does structural_risks name specific differences (PWS density,
+          national met services, weather severity profile) or state a
+          generic caveat ("behaviours may differ")?
+        - Is transfer_verdict justified by structural_risks content?
+        - Does corpus_required name source type, geography, minimum volume?
+
+        If transfer_assumption_check was not triggered: mark SKIPPED.
+      -->
+      <check_transfer_assumption_depth required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE | SKIPPED
+               SKIPPED - transfer_assumption_check not triggered. State why. -->
+        </verdict>
+
+        <finding required="true">
+          <!-- If PASS: quote the structural risk demonstrating genuine domain
+               knowledge, not generic caution.
+               If FAIL: quote the formulaic language. State what specific
+               structural argument was missing. Draw on Context RAG if available.
+               If SKIPPED: confirm query scope and why transfer was not relevant. -->
+        </finding>
+
+      </check_transfer_assumption_depth>
+
+      <!--
+        CHECK 5 - BEHAVIOURAL MECHANISM SPECIFICITY
+        Agent 1 must name a behaviour, trigger, and consequence.
+        This checks whether each is genuinely specific or a surface label
+        reformatted to look specific.
+
+        What Agent 2 looks for:
+        - behaviour: observable action or restated sentiment?
+          "Users feel frustrated" = sentiment.
+          "Users open a second app before committing to outdoor plans" = action.
+        - trigger_condition: falsifiable? Could you design a test to disprove it?
+          "When they don't trust the data" = not falsifiable.
+          "When displayed temperature contradicts recent physical experience" = falsifiable.
+        - consequence: connects to a specific engineering or product workstream?
+          "Users are unhappy" connects to nothing.
+          "Cross-check behaviour makes forecast model investment irrelevant" = specific.
+
+        Canonical failure from P-01: a label split into three sub-labels.
+      -->
+      <check_behavioural_mechanism_specificity required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE
+               Overall FAIL if any subfield fails.
+               PASS_WITH_NOTE if one subfield is weak but not a label. -->
+        </verdict>
+
+        <finding required="true">
+          <!-- Assess each subfield separately.
+               behaviour: [PASS/FAIL] + one-line rationale
+               trigger_condition: [PASS/FAIL] + one-line rationale
+               consequence: [PASS/FAIL] + one-line rationale -->
+        </finding>
+
+      </check_behavioural_mechanism_specificity>
+
+      <!--
+        CHECK 6 - TACIT KNOWLEDGE PROMPT SPECIFICITY
+        The tacit knowledge prompt must be specific to evidence gaps in
+        this evaluation. A generic prompt is worse than no prompt.
+
+        What Agent 2 looks for:
+        - Does prompt_text reference specific evidence units or gaps
+          from this evaluation? Or is it the same generic question
+          that could appear in any evaluation of any corpus?
+        - Is confidence_impact calculated from actual scoring rules,
+          or a placeholder statement?
+        - Would a researcher know exactly what session moment the system
+          is asking about?
+
+        Canonical failure: "Is there anything from the session that
+        might affect this finding?" - adds no value.
+      -->
+      <check_tacit_knowledge_prompt_specificity required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE -->
+        </verdict>
+
+        <finding required="true">
+          <!-- Quote the prompt_text from Agent 1.
+               State whether it references a specific evidence unit, gap,
+               or conflict from this evaluation.
+               If FAIL: write the specific prompt Agent 2 would produce
+               instead, anchored to actual evidence. Not optional - a failed
+               tacit knowledge prompt must be replaced, not just flagged. -->
+        </finding>
+
+        <replacement_prompt required="false" trigger="verdict = FAIL">
+          <!-- The specific tacit knowledge question Agent 2 produces to replace
+               Agent 1 generic version. Anchored to named evidence units.
+               This is what the researcher sees if Agent 2 overrides Agent 1
+               on this check. -->
+        </replacement_prompt>
+
+      </check_tacit_knowledge_prompt_specificity>
+
+      <!--
+        CHECK 7 - DECISION SUPPORT OVERREACH
+        The decision_support field must not claim more than the evidence
+        can support. Most likely to be written optimistically.
+
+        What Agent 2 looks for:
+        - Does decision_this_changes name a decision the corpus actually
+          speaks to? Or does it imply scope the evidence cannot support?
+        - Does decision_this_enables make a causal claim the verdict
+          does not justify? "The team can now fix the trust problem" = causal.
+          "The team can now investigate cache infrastructure as candidate
+          cause" = not causal.
+        - Does decision_this_cannot_support actually constrain the verdict,
+          or is it a token limitation that does not bite?
+
+        Canonical failure: decision_this_enables claims evidence resolves
+        the problem when it only narrows the hypothesis space.
+      -->
+      <check_decision_support_overreach required="true">
+
+        <verdict required="true">
+          <!-- One of: PASS | FAIL | PASS_WITH_NOTE -->
+        </verdict>
+
+        <finding required="true">
+          <!-- Assess each decision_support subfield.
+               decision_this_changes: [PASS/FAIL/ABSENT] + rationale
+               decision_this_enables: [PASS/FAIL/ABSENT] + rationale
+               decision_this_cannot_support: [PASS/FAIL] + rationale
+               If decision_this_cannot_support is toothless, mark FAIL
+               and state what it should say. -->
+        </finding>
+
+      </check_decision_support_overreach>
+
+      <!--
+        OVERALL QA STAMP
+        The aggregate verdict across all seven checks.
+        This is what the researcher sees first in the QA panel.
+      -->
+      <overall_qa_stamp required="true">
+
+        <qa_verdict required="true">
+          <!-- One of: QA_PASSED | QA_PASSED_WITH_NOTES | QA_FAILED
+               QA_PASSED           - all seven checks passed. Verdict may be committed.
+               QA_PASSED_WITH_NOTES - all checks passed, one or more with notes.
+                                     Verdict may be committed after reviewing notes.
+               QA_FAILED           - one or more FAIL findings. Verdict blocked.
+                                     required_action specifies what must be resolved. -->
+        </qa_verdict>
+
+        <checks_summary required="true">
+          <!-- One line per check. Format: [CHECK NAME]: [PASS/FAIL/PASS_WITH_NOTE/SKIPPED]
+               Example:
+               Reasoning Validity: PASS
+               Counter-Signal Engagement: FAIL
+               Confidence Integrity: PASS_WITH_NOTE
+               Transfer Assumption Depth: SKIPPED
+               Behavioural Mechanism Specificity: PASS
+               Tacit Knowledge Prompt Specificity: FAIL
+               Decision Support Overreach: PASS -->
+        </checks_summary>
+
+        <blocking_findings required="false" trigger="qa_verdict = QA_FAILED">
+          <!-- FAIL-verdict checks only, one-line summaries.
+               Full detail is in each individual check element above.
+               Example: "Counter-Signal Engagement: R03 listed but not argued.
+               Tacit Knowledge Prompt: generic - replacement provided in
+               check_tacit_knowledge_prompt_specificity." -->
+        </blocking_findings>
+
+        <required_action required="true" trigger="qa_verdict = QA_FAILED">
+          <!-- Specific instruction to researcher on what must happen before
+               verdict can be committed. Minimum required to unblock - not
+               a list of all findings.
+
+               Three options available to the researcher:
+               1. Return to Agent 1 - request revised evaluation addressing
+                  the specific FAIL findings.
+               2. Override with justification - researcher may override a
+                  QA_FAILED verdict with written rationale. Recorded in the
+                  Decision Log with name and timestamp. Insight flagged
+                  RESEARCHER_OVERRIDE in the insight graph.
+               3. Commit as UNCERTAIN - if the only blocking findings are
+                  confidence score corrections, researcher may commit with
+                  corrected score and UNCERTAIN/EMERGING status without
+                  a full re-run.
+
+               Example: "Counter-signal R03 must be explicitly argued in
+               the reasoning step before this verdict can be committed as
+               STRONG. Alternatively, override with written justification
+               or commit as UNCERTAIN (corrected confidence: 0.61)." -->
+        </required_action>
+
+        <qa_note required="false">
+          <!-- Observations that are not blocking findings but worth knowing.
+               Design observations, architectural gaps, or patterns across
+               multiple evaluations.
+               Example: "This is the third consecutive evaluation where the
+               transfer assumption was flagged formulaically. C-001
+               (domain_weather_apps) is PLANNED but not populated. Populating
+               it would allow substantive EU transfer arguments in future
+               evaluations." -->
+        </qa_note>
+
+      </overall_qa_stamp>
+
+    </qa_review>
+
+  </SprintZero_response>
+
+</SprintZero_schema>
+
+<!--
+  SprintZero - Output Schema - v1.2 - May 2026
+  This file is maintained independently of the Framework RAG and the Corpus RAG.
+  Changes to this schema require updating the application rendering layer.
+  Changes to the Framework RAG do not require changes to this schema unless
+  a new required field is introduced.
+  v1.2 adds: qa_review (7 checks), qa_status in attributes.
+  v1.1 adds: project_context, process_challenge, context_status, INTAKE and
+  CHALLENGE response types.
+-->

@@ -1,0 +1,46 @@
+{# Agent 2 skeleton: shown immediately when Agent 1 completes, while Agent 2 is still running.
+   JS swaps the #qa-region innerHTML with qa_surface.html once /qa returns. #}
+
+<div class="agent-divider">
+  <div class="agent-divider-line"></div>
+  <div class="agent-divider-label">↓ Independent QA review ↓</div>
+  <div class="agent-divider-line"></div>
+</div>
+
+<section class="agent-surface agent2-surface qa-skeleton-surface">
+  <header class="agent-banner agent2-banner">
+    <div class="agent-name">Agent 2 · QA Validation Agent</div>
+    <div class="agent-role">independent review</div>
+    <span class="qa-running-pill">
+      <span class="qa-running-dot"></span>
+      Running
+    </span>
+  </header>
+
+  <div class="qa-stamp-large qa-skeleton-stamp">
+    <div class="qa-stamp-label">QA verdict</div>
+    <div class="skeleton-bar skeleton-bar-stamp"></div>
+  </div>
+
+  <div class="qa-note">
+    <div class="qa-note-label">QA note</div>
+    <div class="skeleton-bar"></div>
+    <div class="skeleton-bar"></div>
+    <div class="skeleton-bar skeleton-bar-short"></div>
+  </div>
+
+  <div class="qa-section qa-skeleton-section">
+    <div class="qa-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-pill"></div>
+    </div>
+    <div class="qa-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-pill"></div>
+    </div>
+    <div class="qa-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-pill"></div>
+    </div>
+  </div>
+</section>

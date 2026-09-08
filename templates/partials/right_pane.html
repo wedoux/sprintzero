@@ -1,0 +1,263 @@
+{# Right-pane content. Documentary voice (third-person). Two-surface architecture
+   for synthesis responses: Agent 1 (Research Copilot) and Agent 2 (QA Validation Agent)
+   with an unmissable visual break between them. #}
+
+{% if response_type == 'PARSE_ERROR' %}
+  <div class="parse-fail">
+    <div class="parse-fail-label">Parse failed</div>
+    <div class="parse-fail-detail">{{ parse_error }}</div>
+    <div class="parse-fail-rawlabel">Raw output</div>
+    <pre class="raw">{{ raw_answer }}</pre>
+  </div>
+
+{% elif response_type in ('CHALLENGE', 'INTAKE') %}
+  {# Stable layout: empty state, NOT a collapsed/full-width lurch.
+     This turn is a clarification — the documentary surface intentionally has nothing to show. #}
+  <div class="empty-pane">
+    <div class="empty-pane-glyph">◇</div>
+    <div class="empty-pane-text">No analysis to display</div>
+    <div class="empty-pane-sub">This turn is a clarification.<br>Continue the conversation in the chat.</div>
+  </div>
+
+{% elif response_type in ('EVALUATION', 'GAP_FLAG') %}
+
+  {# ============ AGENT 1 SURFACE ============ #}
+  <section class="agent-surface agent1-surface">
+    <header class="agent-banner agent1-banner">
+      <div class="agent-name">Agent 1 · Research Copilot</div>
+      <div class="agent-role">primary synthesis</div>
+    </header>
+
+    {% set verdict = root.find('verdict') %}
+    {% if verdict is not none %}
+      {% set cls = verdict.findtext('classification') %}
+      {% set raw_score = verdict.findtext('confidence_score') %}
+      {% set score_pct = ((raw_score|float) * 100)|round|int if raw_score else 0 %}
+      <div class="verdict-banner {{ cls }}">
+        <div class="verdict-label">Verdict</div>
+        <div class="classification {{ cls }}">{{ cls }}</div>
+        <div class="confidence-row">
+          <span class="confidence-num">Confidence {{ raw_score }}</span>
+          <span class="confidence-bar"><span class="confidence-fill {{ cls }}" style="width: {{ score_pct }}%"></span></span>
+          <span class="confidence-stab">Stability {{ verdict.findtext('stability_status') }}</span>
+        </div>
+        <div class="verdict-summary">{{ verdict.findtext('one_line_verdict') }}</div>
+      </div>
+    {% endif %}
+
+    <div class="spine">
+      {% set iue = root.find('insight_under_evaluation') %}
+      {% if iue is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Insight under evaluation</span>
+          <span class="card-summary">Theme being assessed</span>
+        </summary>
+        <div class="card-body">
+          <div class="field-value">{{ iue.findtext('original_theme') }}</div>
+        </div>
+      </details>
+      {% endif %}
+
+      {% set bm = root.find('behavioural_mechanism') %}
+      {% if bm is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Behavioural mechanism</span>
+          <span class="card-summary">Behaviour · trigger · consequence</span>
+        </summary>
+        <div class="card-body">
+          <div class="field">
+            <div class="field-label">Behaviour</div>
+            <div class="field-value">{{ bm.findtext('behaviour') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Trigger condition</div>
+            <div class="field-value">{{ bm.findtext('trigger_condition') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Consequence</div>
+            <div class="field-value">{{ bm.findtext('consequence') }}</div>
+          </div>
+        </div>
+      </details>
+      {% endif %}
+
+      {% set ec = root.find('evidence_chain') %}
+      {% if ec is not none %}
+        {% set corr_el = ec.find('corroborating_evidence') %}
+        {% set cs_el = ec.find('counter_signals') %}
+        {% set corr_units = corr_el.findall('unit') if corr_el is not none else [] %}
+        {% set cs_units = cs_el.findall('unit') if cs_el is not none else [] %}
+        <details class="spine-card">
+          <summary>
+            <span class="card-title">Evidence chain</span>
+            <span class="card-summary">{{ corr_units|length }} corroborating · {{ cs_units|length }} counter-signal{{ '' if cs_units|length == 1 else 's' }}</span>
+          </summary>
+          <div class="card-body">
+            {% if corr_units %}
+            <div class="field">
+              <div class="field-label">Corroborating evidence</div>
+              {% for unit in corr_units %}
+              <div class="evidence-item"><span class="field-id">{{ unit.findtext('id') }}</span>{{ unit.findtext('signal') }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if cs_units %}
+            <div class="field">
+              <div class="field-label">Counter-signals</div>
+              {% for unit in cs_units %}
+              <div class="evidence-item"><span class="field-id">{{ unit.findtext('id') }}</span>{{ unit.findtext('signal') }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% set sd = ec.findtext('source_diversity') %}
+            {% if sd %}
+            <div class="field">
+              <div class="field-label">Source diversity</div>
+              <div class="field-value">{{ sd }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </details>
+      {% endif %}
+
+      {% set rs = root.find('reasoning_step') %}
+      {% if rs is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Reasoning</span>
+          <span class="card-summary">Proposed · counter · committed</span>
+        </summary>
+        <div class="card-body">
+          <div class="field">
+            <div class="field-label">Proposed classification</div>
+            <div class="field-value">{{ rs.findtext('proposed_classification') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Counter-consideration</div>
+            <div class="field-value">{{ rs.findtext('counter_consideration') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Commitment</div>
+            <div class="field-value">{{ rs.findtext('classification_commitment') }}</div>
+          </div>
+        </div>
+      </details>
+      {% endif %}
+
+      {% set fa = root.find('falsification_attempt') %}
+      {% if fa is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Falsification attempt</span>
+          <span class="card-summary">{{ fa.findtext('falsification_result') or 'Ran the test' }}</span>
+        </summary>
+        <div class="card-body">
+          <div class="field">
+            <div class="field-label">Query</div>
+            <div class="field-value">{{ fa.findtext('falsification_query') }}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Result</div>
+            <div class="field-value"><strong>{{ fa.findtext('falsification_result') }}</strong></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Evidence</div>
+            <div class="field-value">{{ fa.findtext('falsification_evidence') }}</div>
+          </div>
+        </div>
+      </details>
+      {% endif %}
+
+      {% set tac = root.find('transfer_assumption_check') %}
+      {% if tac is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Transfer assumption check</span>
+          <span class="card-summary">{{ tac.findtext('transfer_verdict') or 'Assessed transferability' }}</span>
+        </summary>
+        <div class="card-body">
+          <div class="field"><div class="field-label">Corpus population</div><div class="field-value">{{ tac.findtext('corpus_population') }}</div></div>
+          <div class="field"><div class="field-label">Target population</div><div class="field-value">{{ tac.findtext('target_population') }}</div></div>
+          <div class="field"><div class="field-label">Structural risks</div><div class="field-value">{{ tac.findtext('structural_risks') }}</div></div>
+          <div class="field"><div class="field-label">Verdict</div><div class="field-value"><strong>{{ tac.findtext('transfer_verdict') }}</strong></div></div>
+          <div class="field"><div class="field-label">Corpus required</div><div class="field-value">{{ tac.findtext('corpus_required') }}</div></div>
+        </div>
+      </details>
+      {% endif %}
+
+      {% set gaps = root.find('gap_flags') %}
+      {% set gap_list = gaps.findall('gap') if gaps is not none else [] %}
+      {% if gap_list %}
+      <details class="spine-card spine-card-gaps">
+        <summary>
+          <span class="card-title">Gap flags</span>
+          <span class="card-summary">{{ gap_list|length }} gap{{ '' if gap_list|length == 1 else 's' }} in the evidence base · needs attention</span>
+        </summary>
+        <div class="card-body">
+          {% for gap in gap_list %}
+          <div class="field">
+            <div class="field-label">{{ gap.findtext('gap_type') }}</div>
+            <div class="field-value">{{ gap.findtext('gap_description') }}</div>
+            <div class="field-value" style="margin-top: 4px; color: #6B5800;"><em>Corpus required:</em> {{ gap.findtext('corpus_required') }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+
+      {% set ds = root.find('decision_support') %}
+      {% if ds is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Decision support</span>
+          <span class="card-summary">What this changes and what it cannot decide</span>
+        </summary>
+        <div class="card-body">
+          {% set dtc = ds.findtext('decision_this_changes') %}
+          {% if dtc %}<div class="field"><div class="field-label">Decision this changes</div><div class="field-value">{{ dtc }}</div></div>{% endif %}
+          {% set dte = ds.findtext('decision_this_enables') %}
+          {% if dte %}<div class="field"><div class="field-label">Decision this enables</div><div class="field-value">{{ dte }}</div></div>{% endif %}
+          <div class="field"><div class="field-label">Decision this cannot support</div><div class="field-value">{{ ds.findtext('decision_this_cannot_support') }}</div></div>
+        </div>
+      </details>
+      {% endif %}
+
+      {% set ri = root.find('reframed_insight') %}
+      {% if ri is not none %}
+      <details class="spine-card">
+        <summary>
+          <span class="card-title">Reframed insight</span>
+          <span class="card-summary">Proposed rewrite</span>
+        </summary>
+        <div class="card-body">
+          <div class="field"><div class="field-label">Proposed wording</div><div class="field-value">{{ ri.findtext('proposed_wording') }}</div></div>
+          <div class="field"><div class="field-label">Diff</div><div class="field-value">{{ ri.findtext('diff_summary') }}</div></div>
+          <div class="field"><div class="field-label">Evidence IDs</div><div class="field-value">{{ ri.findtext('evidence_ids') }}</div></div>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ============ AGENT 2 REGION =============================================
+     Empty by default for fresh /ask responses — JS injects qa_skeleton when
+     Phase 2 starts (the visual "handoff to QA" signal). The skeleton is then
+     swapped for the real qa_surface when /qa returns.
+     If a response somehow arrives with qa_review already on root (e.g. a
+     re-render path), we render the real surface directly. #}
+  <div id="qa-region">
+    {% set qr = root.find('qa_review') %}
+    {% if qr is not none %}
+      {% include 'partials/qa_surface.html' %}
+    {% endif %}
+  </div>
+
+{% else %}
+  <div class="empty-pane">
+    <div class="empty-pane-glyph">◇</div>
+    <div class="empty-pane-text">Unrecognised response type</div>
+    <div class="empty-pane-sub">{{ response_type }}</div>
+  </div>
+{% endif %}

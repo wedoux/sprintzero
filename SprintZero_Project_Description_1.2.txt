@@ -1,0 +1,192 @@
+SprintZero — Project Description
+UX for AI Certification · Niko · May 2026
+Version 1.2
+
+
+WHAT SPRINTZERO IS
+
+SprintZero is an AI-augmented research reasoning system for UX researchers and product teams working in fast-moving environments.
+
+Its core job is not to generate insights. It is to evaluate them — specifically, to catch the failure mode that makes most UX research expensive without being reliable: good data, poorly reasoned into wrong conclusions, invested in confidently.
+
+The system acts as a decision-support layer between raw research evidence and product decisions. Its value is not in producing outputs, but in improving the quality and reliability of the thinking process that leads to them.
+
+
+WHAT PROBLEM IT SOLVES
+
+UX research fails most often not at the data collection stage but at the synthesis stage. A team gathers real, valid data — reviews, interviews, session recordings — and then draws the wrong conclusion because a theme was framed incorrectly at the point of synthesis.
+
+The consequence is not a bad insight document. It is a product team spending months solving the wrong problem.
+
+SprintZero is designed to prevent that specific failure. It does this by grounding every insight in named, citable evidence, requiring an explicit reasoning step before any classification is committed, and surfacing misclassifications before they become decisions.
+
+The canonical illustration: a corpus of Weather Underground App Store reviews surfaced what appeared to be a "forecast inaccuracy" theme. SprintZero's evaluation framework correctly reclassified it as a stale data / cache invalidation bug. A product team handed the original theme would have investigated forecast models. The corrected insight points them at cache logic. Those are completely different engineering workstreams.
+
+
+SCOPE — WHAT IS BEING BUILT FOR THE COURSE
+
+SprintZero's long-term ambition is a Designer companion application that supports the full product discovery cycle. For the purpose of the UX for AI Certification, the scope is deliberately narrow.
+
+Following the Snowball Sprint Framework, the project was built in three structured steps — each one validating a layer before the next was designed.
+
+  Step 1 — Storyboard: "Insight Under Pressure"
+  Identified the thinnest slice of SprintZero that delivers real value:
+  the moment where a designer needs to extract a meaningful insight from
+  messy, unstructured research under time pressure. The storyboard
+  established the core interaction: not automation, but structured
+  synthesis and critique. The system organises signals into patterns,
+  surfaces contradictions and gaps, and challenges assumptions. The
+  designer remains fully in control of the final decision. The payoff
+  is deliberately modest: a single, more precise and testable insight.
+
+  Step 2 — Digital Twin
+  Mapped the minimum set of inputs, transformations, and outputs required
+  to make the storyboard interaction believable. Kept at the level of
+  functional capabilities rather than technical implementation. Inputs:
+  App Store reviews, research notes and transcripts, competitor
+  screenshots, heuristic frameworks, designer context and prompts.
+  Processing layers: text ingestion (theme clustering, sentiment,
+  intensity), visual understanding (UI pattern extraction, feature
+  identification), synthesis (cross-source alignment, gap detection),
+  critique generation (bias detection, contradiction surfacing, missing
+  data flags), and insight framing (hypothesis generation, suggested
+  directions). Outputs: clustered themes, confidence levels, highlighted
+  blind spots, contradictions, and editable insight proposals.
+
+  Step 3 — Value Matrix
+  Forced the shift from "interesting idea" to economic reality by
+  identifying the single AI prediction that creates value: "Is this
+  emerging theme significant enough to investigate as a real product
+  insight?" This reframed SprintZero from an insight generator into a
+  prioritisation system — helping teams decide what is worth attention
+  and what is noise.
+
+The Incremental Synthesis workflow — where new evidence is uploaded into a project that already contains prior evidence and previously generated insights — is the specific process being designed and tested. Everything built is intended to be extensible into the fuller system but is being validated on one use case first.
+
+
+THE CORE AI PREDICTION
+
+The Value Matrix analysis identified the single decision point that drives system value:
+
+  "Is this emerging theme significant enough to investigate as a real
+  product insight?"
+
+This is a prioritisation problem, not a generation problem. The value is not in producing insights — it is in helping teams decide what deserves attention.
+
+The matrix revealed three non-obvious implications:
+
+  False Negatives are disproportionately expensive.
+  Missing a valuable signal (FN: ~3/month, cost ~€15,000) is
+  significantly more damaging than investigating a weak one
+  (FP: ~4/month, cost ~€2,000). The system should therefore optimise
+  for recall over precision — surfacing more potential opportunities,
+  even with some noise. This runs counter to the instinct to cleanly
+  filter outputs.
+
+  Trust is tied to transparency, not accuracy.
+  Given the inherent ambiguity of "insight quality," the system cannot
+  rely on being correct. Value comes from exposing reasoning, surfacing
+  contradictions, and making uncertainty visible — not from producing
+  confident verdicts.
+
+  This is a judgment-support system, not an answer machine.
+  Success depends less on generating outputs and more on how well the
+  system supports human judgment under ambiguity.
+
+
+ARCHITECTURE
+
+SprintZero operates on a layered knowledge architecture:
+
+  Registry         Index of all available corpora. Tracks source type, project,
+                   date range, geography, confidence level. Flags gaps.
+
+  Corpus RAG       Structured evidence base. Currently: 13 annotated App Store
+                   reviews for Weather Underground (R01–R13). Designed to
+                   accommodate interviews, surveys, NPS verbatims, support
+                   tickets as additional corpora are added.
+
+  Framework RAG    Evaluation methodology and output protocol. Specifies verdict
+                   thresholds (STRONG / UNCERTAIN / WEAK), classification logic
+                   (Corroboration / Contradiction / Expansion / Net New),
+                   falsification test requirements, and EU transfer assumption
+                   checks. Maintained independently of the corpus so it is
+                   reusable across different evidence sets.
+
+  Context RAG      Project-specific constraints: target market, known product
+                   decisions, organisational priorities. Informs transfer
+                   assumption checks and scopes what "relevant" means.
+
+The Registry solves the gap problem: when a researcher asks "does this theme transfer to EU users?" the system can respond not just by flagging the absence of EU evidence, but by specifying exactly what corpus would need to exist to answer the question.
+
+
+DIVISION OF LABOUR — WHAT AI DOES AND WHAT THE RESEARCHER DOES
+
+The AI is reliably good at:
+  — Applying a consistent evaluative frame across a corpus
+  — Detecting misclassification (theme framed incorrectly at synthesis)
+  — Flagging where evidence is absent
+  — Surfacing contradictions, tensions, and potential biases
+  — Producing traceable, citable reasoning steps
+  — Maintaining version history on every insight mutation
+
+What the AI cannot do:
+  — Inject tacit knowledge from the research session
+  — Know what the transcript does not contain
+  — Observe the hesitation before an answer, the contradiction between
+    what a participant said and how they said it
+
+SprintZero is designed to create structured space for tacit knowledge to enter the system. The most important interface is not the RAG file or the prompt — it is the moment of handoff. Step 8 of the Incremental Synthesis workflow includes a required field: "What the corpus does not contain that I know from being in the room." This is not optional.
+
+The system does not use synthetic user proxies for validation. AI agents synthesise and challenge. The researcher decides.
+
+
+WHAT HAS BEEN VALIDATED
+
+Testing across four LLMs (Claude Sonnet 4.6, Gemini 3.1 Pro, Grok Fast, ChatGPT GPT-5.3) confirmed:
+
+  — All four models with RAG access converged on the stale data
+    misclassification, cited R03 as a counter-signal, and correctly
+    declined to recommend forecast model investment.
+
+  — Gemini without RAG produced confident, specific, and entirely
+    fabricated findings. The delta between the RAG and no-RAG conditions
+    is the clearest evidence that the constraint layer is doing real work.
+
+  — All models flagged the EU transfer assumption correctly but
+    formulaically — without the domain knowledge to argue it (lower PWS
+    density in Europe, strong national met services as alternatives,
+    different weather severity profile). This is a Framework RAG gap,
+    not a model limitation. It points at what the Context RAG needs to
+    contain.
+
+
+OPEN QUESTIONS
+
+  — The financial values in the Value Matrix (particularly for False
+    Negatives) are based on proxy assumptions and would need validation
+    in a real product context.
+
+  — The definition of a "valuable insight" remains subjective and
+    context-dependent. The system makes this uncertainty visible rather
+    than resolving it.
+
+  — A before/after storyboard comparing SprintZero to current ad-hoc
+    AI workflows (e.g. direct ChatGPT prompting) was not completed due
+    to time constraints. Revisiting this contrast would help clarify
+    where the system creates differentiated value.
+
+  — The Digital Twin represents capabilities at a functional level.
+    The agentic architecture behind those capabilities has not yet been
+    fully specified.
+
+
+WHERE THIS IS GOING
+
+The RAG Registry is the architectural move that transforms SprintZero from a tool into infrastructure. A single corpus limits the system to pattern-matching within one dataset. A Registry creates a research memory — an institutional record of what has been studied, what has been validated, and where the gaps are.
+
+The design problem most worth solving in the next iteration: what does the handoff between AI output and human judgment actually look like as an interface? A structured review step where the researcher can challenge the verdict before it is accepted is specified in the blueprint but not yet designed as a screen or interaction pattern.
+
+
+---
+SprintZero · Project Description · v1.2 · May 2026
