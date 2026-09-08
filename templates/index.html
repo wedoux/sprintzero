@@ -1485,7 +1485,9 @@ async function submit(text) {
         body: 'question=' + encodeURIComponent(text),
     }, {
         // Real section completions, streamed as Agent 1 writes them.
-        progress: function (p) { logEntry({ text: p.label, cls: '' }); },
+        progress: function (p) {
+            logEntry({ text: p.label, cls: p.retry ? 'handoff' : '' });
+        },
         // The verdict, as soon as it closes - long before the rest.
         verdict: function (v) { renderEarlyVerdict(v.html); },
     });

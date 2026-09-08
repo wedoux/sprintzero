@@ -13,6 +13,7 @@ import os
 import re
 import xml.etree.ElementTree as ET
 
+import instrumentation
 import model_client
 import resources
 
@@ -109,34 +110,52 @@ def run_qa_review(client, model, agent1_xml, on_progress=None):
     """
     system_blocks = build_qa_system_blocks()
     user_message = build_qa_user_message(agent1_xml)
-    try:
-        text, _final = model_client.stream_text(
-            client,
-            label="agent2_qa",
-            model=model,
-            max_tokens=12000,
-            system=system_blocks,
-            messages=[{"role": "user", "content": user_message}],
-            on_progress=on_progress,
-            agent1_xml_chars=len(agent1_xml),
-            system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
-        )
-    except Exception as e:
-        return None, f"Agent 2 API call failed: {e}"
 
-    if not text:
-        return None, "Agent 2 returned empty response"
+    # Same intermittent malformed-XML fault as Agent 1. Here a failure does not
+    # lose the analysis - the gate degrades to "QA INCOMPLETE" - but an
+    # unvalidated verdict is still a verdict the researcher cannot commit, so
+    # it is worth one retry before giving up. The reporter is reused across
+    # attempts on purpose: its `seen` set stops already-reported checks being
+    # announced to the client twice.
+    last_error = None
+    for attempt in (1, 2):
+        try:
+            text, _final = model_client.stream_text(
+                client,
+                label="agent2_qa",
+                model=model,
+                max_tokens=12000,
+                system=system_blocks,
+                messages=[{"role": "user", "content": user_message}],
+                on_progress=on_progress,
+                agent1_xml_chars=len(agent1_xml),
+                system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
+                attempt=attempt,
+            )
+        except Exception as e:
+            return None, f"Agent 2 API call failed: {e}"
 
-    cleaned = _strip_wrapper(text)
-    try:
-        element = ET.fromstring(cleaned)
-    except ET.ParseError as e:
-        return None, f"Agent 2 output did not parse: {e}"
+        if not text:
+            last_error = "Agent 2 returned empty response"
+            instrumentation.save_failed_output("agent2", text, last_error, attempt=attempt)
+            continue
 
-    if element.tag != "qa_review":
-        return None, f"Agent 2 returned <{element.tag}>, expected <qa_review>"
+        cleaned = _strip_wrapper(text)
+        try:
+            element = ET.fromstring(cleaned)
+        except ET.ParseError as e:
+            last_error = f"Agent 2 output did not parse: {e}"
+            instrumentation.save_failed_output("agent2", text, last_error, attempt=attempt)
+            continue
 
-    return element, None
+        if element.tag != "qa_review":
+            last_error = f"Agent 2 returned <{element.tag}>, expected <qa_review>"
+            instrumentation.save_failed_output("agent2", text, last_error, attempt=attempt)
+            continue
+
+        return element, None
+
+    return None, last_error
 
 
 def merge_qa_review(agent1_root, qa_review_element):

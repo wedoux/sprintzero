@@ -65,6 +65,39 @@ def record(label, elapsed_s, response=None, error=None, **meta):
         pass  # instrumentation must never break the request path
 
 
+def save_failed_output(agent, raw_text, error, **meta):
+    """Persist model output that would not parse. Returns the path, or None.
+
+    A parse failure costs the researcher the whole generation, and until now the
+    evidence lived only in the browser pane that reported it - close the tab and
+    the failure could not be investigated. Writing it down is what makes a rare
+    intermittent fault fixable rather than folklore.
+    """
+    try:
+        import resources
+        # Microseconds, not seconds: a retry fails within the same second as
+        # the attempt before it, and second-resolution names silently
+        # overwrote one of the two artefacts - losing exactly the evidence
+        # that a double failure exists to provide.
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+        suffix = f"-attempt{meta['attempt']}" if "attempt" in meta else ""
+        path = resources.diagnostics_dir() / f"{stamp}-{agent}{suffix}.txt"
+        header = [
+            f"agent:  {agent}",
+            f"when:   {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
+            f"error:  {error}",
+        ]
+        header += [f"{k}: {v}" for k, v in meta.items()]
+        path.write_text(
+            "\n".join(header) + "\n" + "-" * 70 + "\n" + (raw_text or ""),
+            encoding="utf-8",
+        )
+        record(f"{agent}_parse_failure", 0.0, error=error, saved_to=str(path), **meta)
+        return path
+    except Exception:
+        return None  # diagnostics must never break the request path
+
+
 def observe(label, call, **meta):
     """Run `call`, time it, record the result. Exceptions propagate unchanged."""
     start = perf_counter()

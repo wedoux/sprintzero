@@ -16,6 +16,19 @@
   <div class="parse-fail">
     <div class="parse-fail-label">Parse failed</div>
     <div class="parse-fail-detail">{{ parse_error }}</div>
+    {% if attempts and attempts > 1 %}
+    <div class="parse-fail-detail parse-fail-attempts">
+      Retried once — both attempts returned structurally invalid XML. This is a
+      model output fault, not a problem with the theme you submitted; the same
+      theme will usually succeed if resubmitted.
+    </div>
+    {% endif %}
+    {% if saved_paths %}
+    <div class="parse-fail-rawlabel">Saved for diagnosis</div>
+    {% for path in saved_paths %}
+    <div class="parse-fail-detail"><code>{{ path }}</code></div>
+    {% endfor %}
+    {% endif %}
     <div class="parse-fail-rawlabel">Raw output</div>
     <pre class="raw">{{ raw_answer }}</pre>
   </div>
