@@ -12,15 +12,14 @@ and Agent 2 is instructed to note the degradation in its output.
 import os
 import re
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
 import model_client
+import resources
 
-REPO_ROOT = Path(__file__).parent.parent
-QA_PROTOCOL_PATH = REPO_ROOT / "agents" / "prompts" / "qa_agent_protocol.md"
-OUTPUT_SCHEMA_PATH = REPO_ROOT / "agents" / "prompts" / "sprintzero_output_schema.xml"
-FRAMEWORK_PATH = REPO_ROOT / "corpora" / "framework" / "evaluation.md"  # A-001
-C001_PATH = REPO_ROOT / "corpora" / "context" / "domain_weather_apps.md"
+QA_PROTOCOL_PATH = resources.resource("agents", "prompts", "qa_agent_protocol.md")
+OUTPUT_SCHEMA_PATH = resources.resource("agents", "prompts", "sprintzero_output_schema.xml")
+FRAMEWORK_PATH = resources.resource("corpora", "framework", "evaluation.md")  # A-001
+C001_PATH = resources.resource("corpora", "context", "domain_weather_apps.md")
 
 # Hard guard per QA protocol: A-001 and A-006 are required inputs.
 if not OUTPUT_SCHEMA_PATH.exists():

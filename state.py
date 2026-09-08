@@ -1,10 +1,13 @@
 """Flat JSON state for the single hard-coded project. Prototype scope only."""
 import datetime
 import json
-from pathlib import Path
+
+import resources
 
 PROJECT_ID = "weather-underground-redesign"
-STATE_DIR = Path(__file__).parent / "state"
+# Application Support when frozen — the bundle is read-only and is unpacked
+# fresh on every launch, so state kept beside the code would not survive.
+STATE_DIR = resources.state_dir()
 STATE_FILE = STATE_DIR / f"{PROJECT_ID}.json"
 
 DEFAULT_STATE = {

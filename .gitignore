@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .DS_Store
 state/latency_trace.jsonl
+build/
+dist/

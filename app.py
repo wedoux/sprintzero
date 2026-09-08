@@ -6,29 +6,36 @@ import xml.etree.ElementTree as ET
 
 import anthropic
 from dotenv import load_dotenv
+
+import credentials
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 import instrumentation
 import model_client
+import resources
 import state
 from agents import agent2_qa
 
 load_dotenv()
 
-app = Flask(__name__)
+# Explicit folders: a frozen bundle unpacks to a temp dir, and a double-clicked
+# .app inherits "/" as its working directory, so Flask's relative defaults and
+# every bare relative open() below would resolve against the wrong place.
+app = Flask(
+    __name__,
+    template_folder=str(resources.resource("templates")),
+    static_folder=str(resources.resource("static")),
+)
 client = anthropic.Anthropic()
 
-with open("agents/prompts/sprintzero_copilot_role_task.txt") as f:
-    BASE_SYSTEM_PROMPT = f.read()
-
-with open("agents/prompts/sprintzero_output_schema.xml") as f:
-    OUTPUT_FORMAT = f.read()
+BASE_SYSTEM_PROMPT = resources.read_text("agents", "prompts", "sprintzero_copilot_role_task.txt")
+OUTPUT_FORMAT = resources.read_text("agents", "prompts", "sprintzero_output_schema.xml")
 
 # Agent 1 and Agent 2 are separately configurable - see model_client for why.
 AGENT1_MODEL = model_client.AGENT1_MODEL
 AGENT2_MODEL = model_client.AGENT2_MODEL
 
-CORPORA_DIR = "corpora"
+CORPORA_DIR = str(resources.resource("corpora"))
 ROLES = ("framework", "corpus", "context")
 ROLE_LABELS = {
     "framework": "Framework",
@@ -299,9 +306,11 @@ def ask():
                 )
                 result["text"] = text
             except anthropic.AuthenticationError:
+                credentials.clear_keychain()
                 result["error"] = (
-                    "Invalid API key. Set ANTHROPIC_API_KEY in the environment "
-                    "or the app keychain entry."
+                    "Invalid API key. The stored key has been cleared — "
+                    "restart SprintZero to enter a new one, or set "
+                    "ANTHROPIC_API_KEY in the environment."
                 )
             except anthropic.APIError as e:
                 result["error"] = f"API error: {getattr(e, 'message', e)}"
