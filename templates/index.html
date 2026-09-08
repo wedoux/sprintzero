@@ -1104,29 +1104,28 @@
 //   GATED  — fire only when the actual fetch returns; never on a timer.
 // Between them, if the paced run finishes before the fetch, a HEARTBEAT
 // entry shows "Thinking… (Xs)" with a live counter until the fetch resolves.
-const PHASE1_PACED = [
+// Instant, deterministic local work — these are real and complete before the
+// first token arrives, so they are not paced.
+const PHASE1_OPENING = [
     { text: "Loading framework ({{ project_state.display_names.get('evaluation.md', 'evaluation.md') }})…", cls: "" },
     { text: "Loading reference data ({{ project_state.display_names.get('weather_underground.md', 'weather_underground.md') }})…", cls: "" },
-    { text: "Evaluating theme against corpus…", cls: "" },
-    { text: "Checking counter-signals…", cls: "" },
-    { text: "Running falsification attempt…", cls: "" },
 ];
 const PHASE1_GATED = [
     { text: "Agent 1 verdict ready", cls: "done" },
 ];
-const PHASE2_PACED = [
+const PHASE2_OPENING = [
     { text: "Handing off to QA Validation Agent…", cls: "handoff" },
-    { text: "QA Agent: running seven checks…", cls: "handoff" },
 ];
 const PHASE2_GATED = [
     { text: "QA Agent: verdict ready", cls: "done" },
     { text: "Result available in right pane →", cls: "final" },
 ];
 
-const PHASE1_PACE_MS = 3500;   // ~17s total (5 paced entries)
-const PHASE2_PACE_MS = 5000;   // ~10s total (2 paced entries)
+// Everything between the opening and gated entries is now driven by real
+// section- and check-completion events streamed from the server. The old
+// PHASE*_PACE_MS animation was removed: measurement showed it ran for 5.5s
+// against a 47s call, so it stopped narrating long before the work finished.
 const GATED_PACE_MS  = 500;    // small pause between gated entries so they read sequentially
-const HEARTBEAT_AFTER_MS = 1500; // delay before showing the heartbeat after paced finishes
 
 const ta = document.getElementById('question');
 const form = document.getElementById('question-form');
@@ -1213,38 +1212,101 @@ function stopHeartbeat(hb) {
 
 // Run a phase: paced entries on a timer, then fire gated entries
 // only after `fetchPromise` settles. Shows a heartbeat if there's a gap.
-async function runPhase(log, paced, gated, paceMs, fetchPromise) {
-    // Track when the fetch settles.
-    let settled = false;
-    fetchPromise.then(function () { settled = true; }, function () { settled = true; });
-
-    // Play paced entries one at a time.
-    for (let i = 0; i < paced.length; i++) {
-        appendEntry(log, paced[i]);
-        // Don't pace after the last paced entry — go straight into heartbeat / gated.
-        if (i < paced.length - 1) {
-            await sleep(paceMs);
+// Reads a Server-Sent Event stream and reports progress as it arrives.
+// Returns the payload of the `done` frame, or {error}. Progress handlers are
+// keyed by event name; unknown events are ignored rather than fatal, so the
+// server can add new ones without breaking an older client.
+async function streamPhase(log, url, fetchOpts, handlers) {
+    let response;
+    try {
+        response = await fetch(url, fetchOpts);
+    } catch (e) {
+        return { error: 'Network error: ' + e.message };
+    }
+    if (!response.ok || !response.body) {
+        try {
+            const j = await response.json();
+            return { error: j.error || ('HTTP ' + response.status) };
+        } catch (e) {
+            return { error: 'HTTP ' + response.status };
         }
     }
 
-    // If the fetch hasn't returned yet, show heartbeat after a short delay.
-    let hb = null;
-    if (!settled) {
-        await sleep(HEARTBEAT_AFTER_MS);
-        if (!settled) hb = startHeartbeat(log);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let done = null;
+    let failure = null;
+
+    // Heartbeat runs whenever we are waiting, and resets on every real entry.
+    let hb = startHeartbeat(log);
+    function beat() {
+        stopHeartbeat(hb);
+        hb = startHeartbeat(log);
     }
 
-    // Wait for the fetch to actually return.
-    const result = await fetchPromise.catch(function (e) { return { error: 'Network error: ' + e.message }; });
+    try {
+        while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            buffer += decoder.decode(chunk.value, { stream: true });
+
+            let split;
+            while ((split = buffer.indexOf('\n\n')) !== -1) {
+                const frame = buffer.slice(0, split);
+                buffer = buffer.slice(split + 2);
+
+                const evLine = frame.match(/^event: (.+)$/m);
+                const dataLine = frame.match(/^data: (.*)$/m);
+                if (!evLine || !dataLine) continue;
+
+                let payload;
+                try {
+                    payload = JSON.parse(dataLine[1]);
+                } catch (e) {
+                    continue;
+                }
+
+                const name = evLine[1].trim();
+                if (name === 'done') {
+                    done = payload;
+                } else if (name === 'error') {
+                    failure = payload;
+                } else if (handlers[name]) {
+                    handlers[name](payload);
+                    beat();
+                }
+            }
+        }
+    } catch (e) {
+        stopHeartbeat(hb);
+        return { error: 'Stream interrupted: ' + e.message };
+    }
     stopHeartbeat(hb);
 
-    // Fire gated entries, paced lightly so they read sequentially.
+    if (failure) return { error: failure.error || 'Unknown server error' };
+    return done || { error: 'Stream ended without returning a result' };
+}
+
+async function playGated(log, gated) {
     for (let i = 0; i < gated.length; i++) {
         appendEntry(log, gated[i]);
         if (i < gated.length - 1) await sleep(GATED_PACE_MS);
     }
+}
 
-    return result;
+// Live count of QA checks landed, so the Tier 1 band reports real progress
+// during the wait instead of an indefinite "Running…". Reset per submission.
+let qaChecksSeen = 0;
+const QA_CHECK_TOTAL = 7;
+
+function markQaCheckRunning() {
+    qaChecksSeen += 1;
+    setQaBand(
+        'pending',
+        'Running — ' + qaChecksSeen + ' of ' + QA_CHECK_TOTAL + ' checks',
+        'Verdict not committable until QA returns'
+    );
 }
 
 // Tier 1 QA band. Starts pending at /ask; resolved here when /qa lands.
@@ -1382,24 +1444,30 @@ async function submit(text) {
     paintAgent1Skeleton();
 
     const log = newActivityLog(turn);
-    const phase1Steps = PHASE1_PACED.length + PHASE1_GATED.length;
+    qaChecksSeen = 0;
+    let steps = 0;
+    function logEntry(entry) { appendEntry(log, entry); steps += 1; }
 
     // === Phase 1: Agent 1 =====
-    const askPromise = fetch('/ask', {
+    PHASE1_OPENING.forEach(logEntry);
+
+    const result = await streamPhase(log, '/ask', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'question=' + encodeURIComponent(text),
-    }).then(function (r) { return r.json(); });
-
-    const result = await runPhase(log, PHASE1_PACED, PHASE1_GATED, PHASE1_PACE_MS, askPromise);
+    }, {
+        // Real section completions, streamed as Agent 1 writes them.
+        progress: function (p) { logEntry({ text: p.label, cls: '' }); },
+    });
 
     if (result.error) {
         showError(log, turn, result.error);
         return;
     }
+    await playGated(log, PHASE1_GATED);
+    steps += PHASE1_GATED.length;
 
-    // Swap the skeleton for the real Agent 1 surface. For synthesis,
-    // right_pane_html already contains the qa_skeleton inside #qa-region.
+    // Swap the skeleton for the real Agent 1 surface.
     if (result.right_pane_html) {
         rightPane.innerHTML = result.right_pane_html;
         rightPane.scrollTop = 0;
@@ -1414,7 +1482,7 @@ async function submit(text) {
 
     const isSynthesis = (result.response_type === 'EVALUATION' || result.response_type === 'GAP_FLAG');
     if (!isSynthesis) {
-        finalize(log, phase1Steps);
+        finalize(log, steps);
         return;
     }
 
@@ -1423,14 +1491,22 @@ async function submit(text) {
     // "Handing off to QA Validation Agent…" lands in the activity log, and
     // shimmers until the real qa_surface replaces it when /qa returns.
     injectQaSkeleton();
+    PHASE2_OPENING.forEach(logEntry);
 
-    const qaPromise = fetch('/qa', {
+    const qaResult = await streamPhase(log, '/qa', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ agent1_xml: result.agent1_xml }),
-    }).then(function (r) { return r.json(); });
-
-    const qaResult = await runPhase(log, PHASE2_PACED, PHASE2_GATED, PHASE2_PACE_MS, qaPromise);
+    }, {
+        // One entry per check as it lands, carrying the verdict it reached.
+        check: function (c) {
+            logEntry({
+                text: c.label + ': ' + String(c.verdict || '').replace(/_/g, ' '),
+                cls: c.verdict === 'FAIL' ? 'handoff' : '',
+            });
+            markQaCheckRunning(c);
+        },
+    });
 
     const qaRegion = document.getElementById('qa-region');
     if (qaResult.error) {
@@ -1449,7 +1525,8 @@ async function submit(text) {
         applyQaGateToVerdict(qaResult);
     }
 
-    finalize(log, phase1Steps + PHASE2_PACED.length + PHASE2_GATED.length);
+    await playGated(log, PHASE2_GATED);
+    finalize(log, steps + PHASE2_GATED.length);
 }
 
 form.addEventListener('submit', function (e) {

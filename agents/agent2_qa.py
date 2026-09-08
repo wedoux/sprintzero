@@ -14,7 +14,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import instrumentation
+import model_client
 
 REPO_ROOT = Path(__file__).parent.parent
 QA_PROTOCOL_PATH = REPO_ROOT / "agents" / "prompts" / "qa_agent_protocol.md"
@@ -100,27 +100,31 @@ def _strip_wrapper(text):
     return text
 
 
-def run_qa_review(client, model, agent1_xml):
-    """Call Agent 2; return (qa_review_element, error_message). On failure, element is None."""
+def run_qa_review(client, model, agent1_xml, on_progress=None):
+    """Call Agent 2; return (qa_review_element, error_message). On failure, element is None.
+
+    Streams. `on_progress(accumulated_text)` fires as the review is written so
+    the caller can report checks as they land rather than after all seven have
+    completed - the measured 47s baseline was almost entirely output generation,
+    so there was a lot of finished work sitting behind a blocking call.
+    """
     system_blocks = build_qa_system_blocks()
     user_message = build_qa_user_message(agent1_xml)
     try:
-        response = instrumentation.observe(
-            "agent2_qa",
-            lambda: client.messages.create(
-                model=model,
-                max_tokens=12000,
-                system=system_blocks,
-                messages=[{"role": "user", "content": user_message}],
-            ),
+        text, _final = model_client.stream_text(
+            client,
+            label="agent2_qa",
             model=model,
+            max_tokens=12000,
+            system=system_blocks,
+            messages=[{"role": "user", "content": user_message}],
+            on_progress=on_progress,
             agent1_xml_chars=len(agent1_xml),
             system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
         )
     except Exception as e:
         return None, f"Agent 2 API call failed: {e}"
 
-    text = next((b.text for b in response.content if b.type == "text"), "")
     if not text:
         return None, "Agent 2 returned empty response"
 

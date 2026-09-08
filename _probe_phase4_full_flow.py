@@ -14,7 +14,8 @@ import xml.etree.ElementTree as ET
 
 import state
 from agents import agent2_qa
-from app import MODEL, build_system_blocks, client, load_corpora, parse_response
+from app import (AGENT1_MODEL, AGENT2_MODEL, build_system_blocks, client,
+                 load_corpora, parse_response)
 
 THEME = (
     "Weather Underground iOS users experience a data-freshness failure mode in "
@@ -27,13 +28,16 @@ query_id = state.generate_query_id(project_state)
 corpora = load_corpora()
 
 sys.stdout.write(f"===== AGENT 1 (query_id={query_id}) =====\n")
-response = client.messages.create(
-    model=MODEL,
+import model_client
+
+agent1_text, _final = model_client.stream_text(
+    client,
+    label="probe_agent1",
+    model=AGENT1_MODEL,
     max_tokens=16000,
     system=build_system_blocks(corpora, project_state, query_id),
     messages=[{"role": "user", "content": THEME}],
 )
-agent1_text = next((b.text for b in response.content if b.type == "text"), "")
 root, parse_error = parse_response(agent1_text)
 if root is None:
     sys.stdout.write(f"AGENT 1 PARSE FAILED: {parse_error}\n")
@@ -54,7 +58,7 @@ if response_type not in ("EVALUATION", "GAP_FLAG"):
 
 sys.stdout.write("\n===== AGENT 2 =====\n")
 agent1_xml = ET.tostring(root, encoding="unicode")
-qa_review, qa_error = agent2_qa.run_qa_review(client, MODEL, agent1_xml)
+qa_review, qa_error = agent2_qa.run_qa_review(client, AGENT2_MODEL, agent1_xml)
 if qa_review is None:
     sys.stdout.write(f"AGENT 2 FAILED: {qa_error}\n")
     sys.exit(1)

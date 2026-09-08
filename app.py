@@ -1,12 +1,15 @@
+import json
 import os
 import re
+import threading
 import xml.etree.ElementTree as ET
 
 import anthropic
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 import instrumentation
+import model_client
 import state
 from agents import agent2_qa
 
@@ -21,7 +24,10 @@ with open("agents/prompts/sprintzero_copilot_role_task.txt") as f:
 with open("agents/prompts/sprintzero_output_schema.xml") as f:
     OUTPUT_FORMAT = f.read()
 
-MODEL = "claude-opus-4-7"
+# Agent 1 and Agent 2 are separately configurable - see model_client for why.
+AGENT1_MODEL = model_client.AGENT1_MODEL
+AGENT2_MODEL = model_client.AGENT2_MODEL
+
 CORPORA_DIR = "corpora"
 ROLES = ("framework", "corpus", "context")
 ROLE_LABELS = {
@@ -29,6 +35,24 @@ ROLE_LABELS = {
     "corpus": "Reference data",
     "context": "Domain context",
 }
+
+# Real progress, replacing the timed animation the client used to run. Each
+# entry fires the first time its closing tag appears in the streamed output, so
+# the activity log reports what the agent has actually finished. The measured
+# baseline spent ~85s (Agent 1) and ~47s (Agent 2) generating output that was
+# already partly complete and entirely unshown.
+AGENT1_PROGRESS = [
+    ("insight_under_evaluation", "Insight framed"),
+    ("behavioural_mechanism", "Behavioural mechanism mapped"),
+    ("evidence_chain", "Evidence chain assembled"),
+    ("verdict", "Verdict committed"),
+    ("reasoning_step", "Reasoning committed"),
+    ("falsification_attempt", "Falsification attempt complete"),
+    ("transfer_assumption_check", "Transfer assumption checked"),
+    ("gap_flags", "Gap flags recorded"),
+    ("decision_support", "Decision support written"),
+    ("reframed_insight", "Insight reframed"),
+]
 
 QA_CHECK_NAMES = [
     ("check_reasoning_validity", "Reasoning Validity"),
@@ -81,6 +105,60 @@ def qa_gate_reason(qa_review_element, qa_status):
     required_action = (stamp.findtext("required_action") or "").strip() or None
     blocking = (stamp.findtext("blocking_findings") or "").strip() or None
     return required_action, blocking, not (required_action or blocking)
+
+
+def sse(event, payload):
+    """One Server-Sent Event frame."""
+    return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+
+def make_section_reporter(sections):
+    """Returns on_progress(text) that emits each section once, in completion order.
+
+    Appends to a list rather than yielding, because the Anthropic stream calls
+    this synchronously from inside its own loop - the Flask generator drains
+    the list between chunks.
+    """
+    seen = set()
+    pending = []
+
+    def on_progress(accumulated):
+        for tag, label in sections:
+            if tag in seen:
+                continue
+            if f"</{tag}>" in accumulated:
+                seen.add(tag)
+                pending.append({"tag": tag, "label": label})
+
+    return on_progress, pending
+
+
+CHECK_VERDICT_RE = re.compile(r"<verdict>\s*([A-Z_]+)\s*</verdict>")
+
+
+def make_check_reporter():
+    """As above, but reports each QA check with the verdict it landed on."""
+    seen = set()
+    pending = []
+
+    def on_progress(accumulated):
+        for tag, label in QA_CHECK_NAMES:
+            if tag in seen:
+                continue
+            close = f"</{tag}>"
+            idx = accumulated.find(close)
+            if idx == -1:
+                continue
+            seen.add(tag)
+            fragment = accumulated[accumulated.rfind(f"<{tag}>", 0, idx):idx]
+            m = CHECK_VERDICT_RE.search(fragment)
+            pending.append({
+                "tag": tag,
+                "label": label,
+                "verdict": m.group(1) if m else "SKIPPED",
+            })
+
+    return on_progress, pending
 
 
 CODE_FENCE_RE = re.compile(r"^```(?:xml)?\s*\n(.*?)\n```\s*$", re.DOTALL)
@@ -186,12 +264,12 @@ def home():
 
 @app.route("/ask", methods=["POST"])
 def ask():
-    """Phase 1 of the two-agent flow.
+    """Phase 1 of the two-agent flow, streamed.
 
-    Runs Agent 1 only. Returns the rendered Agent 1 output plus a skeleton
-    placeholder for Agent 2 (rendered server-side inside #qa-region). Also
-    returns the Agent 1 XML as a string so the client can hand it to /qa
-    for Agent 2 to review.
+    Runs Agent 1 and emits Server-Sent Events as sections of the response
+    complete, then a final `done` frame carrying the rendered HTML. The client
+    used to run a timed animation against a blocking call; these are the real
+    section completions instead.
     """
     question = (request.form.get("question") or "").strip()
     if not question:
@@ -200,81 +278,112 @@ def ask():
     corpora = load_corpora()
     project_state = state.load_state()
     query_id = state.generate_query_id(project_state)
-
     system_blocks = build_system_blocks(corpora, project_state, query_id)
-    try:
-        response = instrumentation.observe(
-            "agent1_synthesis",
-            lambda: client.messages.create(
-                model=MODEL,
-                max_tokens=16000,
-                system=system_blocks,
-                messages=[{"role": "user", "content": question}],
-            ),
-            model=MODEL,
-            query_id=query_id,
-            system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
+
+    def generate():
+        on_progress, pending = make_section_reporter(AGENT1_PROGRESS)
+        result = {}
+
+        def run():
+            try:
+                text, _ = model_client.stream_text(
+                    client,
+                    label="agent1_synthesis",
+                    model=AGENT1_MODEL,
+                    max_tokens=16000,
+                    system=system_blocks,
+                    messages=[{"role": "user", "content": question}],
+                    on_progress=on_progress,
+                    query_id=query_id,
+                    system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
+                )
+                result["text"] = text
+            except anthropic.AuthenticationError:
+                result["error"] = (
+                    "Invalid API key. Set ANTHROPIC_API_KEY in the environment "
+                    "or the app keychain entry."
+                )
+            except anthropic.APIError as e:
+                result["error"] = f"API error: {getattr(e, 'message', e)}"
+            except Exception as e:  # noqa: BLE001 - surfaced to the user, not swallowed
+                result["error"] = f"Agent 1 failed: {e}"
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+
+        # Drain progress while the model writes.
+        while worker.is_alive() or pending:
+            while pending:
+                yield sse("progress", pending.pop(0))
+            if worker.is_alive():
+                worker.join(timeout=0.15)
+
+        if "error" in result:
+            yield sse("error", {"error": result["error"]})
+            return
+
+        raw_answer = result.get("text", "")
+        root, parse_error = parse_response(raw_answer)
+
+        if parse_error:
+            yield sse("done", {
+                "response_type": "PARSE_ERROR",
+                "chat_html": render_template(
+                    "partials/chat_messages.html",
+                    response_type="PARSE_ERROR",
+                    parse_error=parse_error,
+                ),
+                "right_pane_html": render_template(
+                    "partials/right_pane.html",
+                    response_type="PARSE_ERROR",
+                    parse_error=parse_error,
+                    raw_answer=raw_answer,
+                ),
+                "query_id": query_id,
+            })
+            return
+
+        response_type = root.findtext("attributes/response_type")
+        state.save_state(project_state)
+
+        # qa_review is intentionally NOT present on root yet — right_pane.html
+        # renders the pending QA band, which the client resolves once /qa lands.
+        chat_html = render_template(
+            "partials/chat_messages.html",
+            root=root,
+            response_type=response_type,
         )
-    except anthropic.AuthenticationError:
-        return jsonify({"error": "Invalid API key. Check ANTHROPIC_API_KEY in .env."}), 500
-    except anthropic.APIError as e:
-        return jsonify({"error": f"API error: {e.message}"}), 500
+        right_pane_html = render_template(
+            "partials/right_pane.html",
+            root=root,
+            response_type=response_type,
+            qa_checks=[],
+        )
 
-    raw_answer = next((b.text for b in response.content if b.type == "text"), "")
-    root, parse_error = parse_response(raw_answer)
-
-    if parse_error:
-        return jsonify({
-            "response_type": "PARSE_ERROR",
-            "chat_html": render_template(
-                "partials/chat_messages.html",
-                response_type="PARSE_ERROR",
-                parse_error=parse_error,
-            ),
-            "right_pane_html": render_template(
-                "partials/right_pane.html",
-                response_type="PARSE_ERROR",
-                parse_error=parse_error,
-                raw_answer=raw_answer,
-            ),
+        is_synthesis = response_type in ("EVALUATION", "GAP_FLAG")
+        yield sse("done", {
+            "response_type": response_type,
+            "chat_html": chat_html,
+            "right_pane_html": right_pane_html,
+            "agent1_xml": ET.tostring(root, encoding="unicode") if is_synthesis else None,
             "query_id": query_id,
         })
 
-    response_type = root.findtext("attributes/response_type")
-    state.save_state(project_state)
-
-    # qa_review is intentionally NOT present on root yet — right_pane.html will
-    # render the skeleton (when synthesis) which JS will swap once /qa returns.
-    chat_html = render_template(
-        "partials/chat_messages.html",
-        root=root,
-        response_type=response_type,
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-    right_pane_html = render_template(
-        "partials/right_pane.html",
-        root=root,
-        response_type=response_type,
-        qa_checks=[],
-    )
-
-    is_synthesis = response_type in ("EVALUATION", "GAP_FLAG")
-    agent1_xml = ET.tostring(root, encoding="unicode") if is_synthesis else None
-
-    return jsonify({
-        "response_type": response_type,
-        "chat_html": chat_html,
-        "right_pane_html": right_pane_html,
-        "agent1_xml": agent1_xml,
-        "query_id": query_id,
-    })
 
 
 @app.route("/qa", methods=["POST"])
 def qa():
-    """Phase 2 of the two-agent flow.
+    """Phase 2 of the two-agent flow, streamed.
 
-    Receives Agent 1's full XML, runs Agent 2 against it, returns the
-    rendered qa_surface partial so the client can swap it into #qa-region.
+    Receives Agent 1's full XML, runs Agent 2 against it, and emits one event
+    per completed check so the seven land visibly rather than arriving together
+    after ~47s of blank screen. The final frame carries the rendered surface and
+    the fragment that invalidates Agent 1's verdict when the gate fails.
     """
     data = request.get_json(silent=True) or {}
     agent1_xml = (data.get("agent1_xml") or "").strip()
@@ -285,40 +394,67 @@ def qa():
     if parse_error or root is None:
         return jsonify({"error": f"Could not re-parse Agent 1 XML: {parse_error}"}), 400
 
-    qa_review, qa_error = agent2_qa.run_qa_review(client, MODEL, agent1_xml)
-    if qa_review is None:
-        return jsonify({"error": f"QA review failed: {qa_error}"}), 500
+    def generate():
+        on_progress, pending = make_check_reporter()
+        result = {}
 
-    agent2_qa.merge_qa_review(root, qa_review)
-    qa_checks = extract_qa_checks(qa_review)
-    qa_status = root.findtext("attributes/qa_status")
-    required_action, blocking, degraded = qa_gate_reason(qa_review, qa_status)
+        def run():
+            review, err = agent2_qa.run_qa_review(
+                client, AGENT2_MODEL, agent1_xml, on_progress=on_progress
+            )
+            result["review"] = review
+            result["error"] = err
 
-    qa_html = render_template(
-        "partials/qa_surface.html",
-        root=root,
-        qa_checks=qa_checks,
-        qa_degraded=degraded,
-    )
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
 
-    # The gate acts on Agent 1's verdict, so /qa also returns the fragment that
-    # invalidates it. Rendered server-side and patched into the existing banner
-    # by the client - re-rendering the whole pane would risk Agent 1's spine.
-    verdict_invalidation_html = None
-    if qa_status == "QA_FAILED":
-        verdict_invalidation_html = render_template(
-            "partials/verdict_invalidation.html",
-            required_action=required_action,
-            blocking=blocking,
-            degraded=degraded,
+        while worker.is_alive() or pending:
+            while pending:
+                yield sse("check", pending.pop(0))
+            if worker.is_alive():
+                worker.join(timeout=0.15)
+
+        qa_review = result.get("review")
+        if qa_review is None:
+            yield sse("error", {"error": f"QA review failed: {result.get('error')}"})
+            return
+
+        agent2_qa.merge_qa_review(root, qa_review)
+        qa_checks = extract_qa_checks(qa_review)
+        qa_status = root.findtext("attributes/qa_status")
+        required_action, blocking, degraded = qa_gate_reason(qa_review, qa_status)
+
+        qa_html = render_template(
+            "partials/qa_surface.html",
+            root=root,
+            qa_checks=qa_checks,
+            qa_degraded=degraded,
         )
 
-    return jsonify({
-        "qa_html": qa_html,
-        "qa_status": qa_status,
-        "qa_degraded": degraded,
-        "verdict_invalidation_html": verdict_invalidation_html,
-    })
+        # The gate acts on Agent 1's verdict, so /qa also returns the fragment
+        # that invalidates it. Patched into the existing banner by the client -
+        # re-rendering the whole pane would risk Agent 1's spine.
+        verdict_invalidation_html = None
+        if qa_status == "QA_FAILED":
+            verdict_invalidation_html = render_template(
+                "partials/verdict_invalidation.html",
+                required_action=required_action,
+                blocking=blocking,
+                degraded=degraded,
+            )
+
+        yield sse("done", {
+            "qa_html": qa_html,
+            "qa_status": qa_status,
+            "qa_degraded": degraded,
+            "verdict_invalidation_html": verdict_invalidation_html,
+        })
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 if __name__ == "__main__":
