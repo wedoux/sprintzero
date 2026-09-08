@@ -1,0 +1,45 @@
+{# The QA gate acting on Agent 1's verdict.
+
+   Injected into the verdict banner by the client when /qa returns QA_FAILED,
+   so the second agent visibly invalidates the first agent's conclusion rather
+   than sitting beside it as a passive note. Never rendered on QA_PASSED - a
+   passing verdict must look exactly as it did before this existed.
+
+   Two shapes:
+     substantive - Agent 2 found something and said what to do about it.
+     degraded    - the verdict is blocked but no reason came back. Says so
+                   plainly instead of asserting a failure that was never found.
+   Requires: required_action, blocking, degraded. #}
+
+{% if degraded %}
+  <div class="verdict-gate verdict-gate-degraded">
+    <div class="verdict-gate-head">
+      <span class="verdict-gate-badge verdict-gate-badge-degraded">QA INCOMPLETE</span>
+      <span class="verdict-gate-title">Verdict unvalidated</span>
+    </div>
+    <div class="verdict-gate-body">
+      The QA agent did not return a usable review, so this verdict has not been
+      validated. This is not a finding against the analysis — nothing was
+      actually checked. Re-run the QA pass before relying on it.
+    </div>
+  </div>
+{% else %}
+  <div class="verdict-gate">
+    <div class="verdict-gate-head">
+      <span class="verdict-gate-badge">QA-FAILED</span>
+      <span class="verdict-gate-title">Verdict blocked — not committable</span>
+    </div>
+    {% if required_action %}
+    <div class="verdict-gate-body">
+      <div class="verdict-gate-label">Required to unblock</div>
+      {{ required_action }}
+    </div>
+    {% endif %}
+    {% if blocking %}
+    <details class="verdict-gate-detail">
+      <summary>What failed</summary>
+      <div class="verdict-gate-detail-body">{{ blocking }}</div>
+    </details>
+    {% endif %}
+  </div>
+{% endif %}

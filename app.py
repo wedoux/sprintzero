@@ -53,6 +53,35 @@ def extract_qa_checks(qa_review_element):
         out.append({"name": display_name, "verdict": verdict, "finding": finding})
     return out
 
+
+def qa_gate_reason(qa_review_element, qa_status):
+    """Why the QA gate blocked the verdict, and whether it gave a reason at all.
+
+    Returns (required_action, blocking_findings, degraded).
+
+    `degraded` is the UI-only state for a QA_FAILED carrying no machine-readable
+    reason. It matters because agent2_qa.merge_qa_review maps an unknown or
+    absent qa_verdict to QA_FAILED: a malformed Agent 2 response can therefore
+    invalidate a sound verdict. Rendering that identically to a substantive
+    failure would repeat, in a new place, the exact misread this work removes -
+    so the surface says "QA could not complete" instead of asserting a failure
+    the agent never actually found.
+
+    Degradation is only meaningful when the gate actually blocked. A clean pass
+    legitimately carries no required_action, and must never be marked degraded.
+    """
+    if qa_status != "QA_FAILED":
+        return None, None, False
+    if qa_review_element is None:
+        return None, None, True
+    stamp = qa_review_element.find("overall_qa_stamp")
+    if stamp is None:
+        return None, None, True
+    required_action = (stamp.findtext("required_action") or "").strip() or None
+    blocking = (stamp.findtext("blocking_findings") or "").strip() or None
+    return required_action, blocking, not (required_action or blocking)
+
+
 CODE_FENCE_RE = re.compile(r"^```(?:xml)?\s*\n(.*?)\n```\s*$", re.DOTALL)
 SPRINTZERO_RESPONSE_RE = re.compile(
     r"(<SprintZero_response>.*?</SprintZero_response>)", re.DOTALL
@@ -254,15 +283,33 @@ def qa():
 
     agent2_qa.merge_qa_review(root, qa_review)
     qa_checks = extract_qa_checks(qa_review)
+    qa_status = root.findtext("attributes/qa_status")
+    required_action, blocking, degraded = qa_gate_reason(qa_review, qa_status)
 
     qa_html = render_template(
         "partials/qa_surface.html",
         root=root,
         qa_checks=qa_checks,
+        qa_degraded=degraded,
     )
+
+    # The gate acts on Agent 1's verdict, so /qa also returns the fragment that
+    # invalidates it. Rendered server-side and patched into the existing banner
+    # by the client - re-rendering the whole pane would risk Agent 1's spine.
+    verdict_invalidation_html = None
+    if qa_status == "QA_FAILED":
+        verdict_invalidation_html = render_template(
+            "partials/verdict_invalidation.html",
+            required_action=required_action,
+            blocking=blocking,
+            degraded=degraded,
+        )
+
     return jsonify({
         "qa_html": qa_html,
-        "qa_status": root.findtext("attributes/qa_status"),
+        "qa_status": qa_status,
+        "qa_degraded": degraded,
+        "verdict_invalidation_html": verdict_invalidation_html,
     })
 
 

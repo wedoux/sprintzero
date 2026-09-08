@@ -498,6 +498,82 @@
         .confidence-fill.WEAK { background: var(--strength-weak-fill); }
         .verdict-summary { margin-top: 14px; font-size: 14px; color: var(--ink-800); line-height: 1.55; }
 
+        /* ---------- QA GATE ACTING ON THE VERDICT (WS1) ----------
+           Applied only when /qa returns QA_FAILED. On QA_PASSED none of these
+           classes are set and the banner renders exactly as it always has.
+
+           Strikethrough is on the short, decisive tokens - the classification
+           word and the numeric confidence. The one-line verdict prose is muted
+           rather than struck: line-through across a full sentence costs more
+           legibility than it buys signal, and the reader still needs to be able
+           to read what was blocked. */
+        .verdict-banner.qa-invalidated {
+            border-left: 3px solid var(--qa-fail-rule);
+            position: relative;
+        }
+        .verdict-banner.qa-invalidated .classification,
+        .verdict-banner.qa-invalidated .confidence-num {
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+            text-decoration-color: var(--qa-fail-ink);
+            opacity: 0.62;
+        }
+        .verdict-banner.qa-invalidated .verdict-summary {
+            color: var(--ink-500);
+            opacity: 0.8;
+        }
+        .verdict-banner.qa-invalidated .confidence-fill { opacity: 0.35; }
+
+        /* Degraded: blocked, but nothing was actually checked. Neutral, not red -
+           it is not a finding, and must not be dressed as one. */
+        .verdict-banner.qa-invalidated.qa-degraded { border-left-color: var(--ink-300); }
+        .verdict-banner.qa-invalidated.qa-degraded .classification,
+        .verdict-banner.qa-invalidated.qa-degraded .confidence-num {
+            text-decoration-color: var(--ink-400);
+        }
+
+        .verdict-gate {
+            margin-top: 16px;
+            padding: 13px 15px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--qa-fail-rule);
+            border-radius: var(--radius-md);
+        }
+        .verdict-gate-degraded { border-color: var(--line-200); }
+        .verdict-gate-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+        .verdict-gate-badge {
+            flex-shrink: 0;
+            font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+            padding: 4px 9px; border-radius: var(--radius-sm);
+            background: var(--qa-fail-ink); color: white;
+            text-transform: uppercase;
+        }
+        .verdict-gate-badge-degraded { background: var(--ink-500); }
+        .verdict-gate-title {
+            font-size: 12px; font-weight: 700; color: var(--ink-800);
+            letter-spacing: -0.005em;
+        }
+        .verdict-gate-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--ink-500); font-weight: 700; margin-bottom: 5px;
+        }
+        .verdict-gate-body { font-size: 13px; line-height: 1.6; color: var(--ink-800); }
+        .verdict-gate-detail { margin-top: 10px; }
+        .verdict-gate-detail > summary {
+            cursor: pointer; list-style: none;
+            font-size: 11px; font-weight: 700; color: var(--ink-500);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            user-select: none;
+        }
+        .verdict-gate-detail > summary::-webkit-details-marker { display: none; }
+        .verdict-gate-detail > summary::before { content: "▸ "; }
+        .verdict-gate-detail[open] > summary::before { content: "▾ "; }
+        .verdict-gate-detail > summary:hover { color: var(--ink-800); }
+        .verdict-gate-detail-body {
+            margin-top: 7px; font-size: 13px; line-height: 1.6;
+            color: var(--ink-600); white-space: pre-wrap;
+        }
+
         /* Spine cards */
         .spine { padding: 14px 22px 18px 22px; }
         .spine-card {
@@ -593,6 +669,11 @@
         .qa-stamp-value.QA_FAILED { color: var(--qa-fail-ink); }
         .qa-stamp-value.QA_PENDING { color: var(--attention-ink); }
         .qa-stamp-value.QA_FAILED.qa-degraded { color: var(--qa-degraded-ink); }
+
+        .qa-degraded-note {
+            margin-top: 9px; font-size: 12.5px; line-height: 1.55;
+            color: var(--ink-600); max-width: 62ch;
+        }
 
         .qa-note {
             padding: 16px 22px;
@@ -1038,6 +1119,25 @@ async function runPhase(log, paced, gated, paceMs, fetchPromise) {
     return result;
 }
 
+// The QA result acts on Agent 1's verdict rather than sitting beside it.
+// Patches the existing banner in place - re-rendering the pane would rebuild
+// Agent 1's spine for no reason and lose any accordion the user has opened.
+// A QA_PASSED result deliberately touches nothing.
+function applyQaGateToVerdict(qaResult) {
+    if (qaResult.qa_status !== 'QA_FAILED') return;
+
+    const banner = document.querySelector('.verdict-banner');
+    if (banner) {
+        banner.classList.add('qa-invalidated');
+        if (qaResult.qa_degraded) banner.classList.add('qa-degraded');
+    }
+
+    const slot = document.getElementById('verdict-gate-slot');
+    if (slot && qaResult.verdict_invalidation_html) {
+        slot.innerHTML = qaResult.verdict_invalidation_html;
+    }
+}
+
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
 function paintAgent1Skeleton() {
@@ -1173,6 +1273,7 @@ async function submit(text) {
         }
     } else if (qaResult.qa_html && qaRegion) {
         qaRegion.innerHTML = qaResult.qa_html;
+        applyQaGateToVerdict(qaResult);
     }
 
     finalize(log, phase1Steps + PHASE2_PACED.length + PHASE2_GATED.length);
