@@ -717,6 +717,31 @@
       be committed to the insight graph. The researcher review layer (Step 8)
       must show the QA stamp prominently - not buried below the evaluation.
 
+      HOW THE REVIEW LAYER IMPLEMENTS THIS (implemented, not aspirational):
+        - QA status is rendered at the top of the analytical pane, above the
+          verdict, not below the evaluation.
+        - On QA_FAILED the verdict is visibly invalidated - the classification
+          and confidence score are struck through - and required_action is
+          shown directly beneath it. The gate acts on the verdict; it does not
+          sit beside it as a note.
+        - On QA_PASSED the verdict renders unchanged. A pass is not an event.
+
+      CONSEQUENCE FOR AGENT 2: required_action is what the researcher is shown
+      when a verdict is blocked. A QA_FAILED that omits both required_action
+      and blocking_findings cannot be presented as a substantive failure - the
+      review layer renders it as "QA INCOMPLETE / verdict unvalidated" instead,
+      explicitly NOT as a finding against the analysis. This is deliberate:
+      Agent 2 output that fails to parse, or arrives without an
+      overall_qa_stamp, is mapped to QA_FAILED by the merge step, and a
+      malformed response must never be allowed to look like a real finding.
+      Always emit required_action when qa_verdict = QA_FAILED.
+
+      EVIDENCE STRENGTH IS NOT QA STATUS: classification (STRONG/UNCERTAIN/
+      WEAK) and qa_status are independent axes and are rendered as such - the
+      strength axis is neutral, and semantic pass/fail colour is reserved for
+      the gate. A WEAK verdict is not a failure; surfacing weak evidence is
+      this system working as intended.
+
       AGENT 2 SCOPE: Agent 2 reviews Agent 1 output only. It does not
       re-run the evaluation. It does not consult the corpus independently.
       It reads the reasoning Agent 1 produced and tests whether that reasoning
