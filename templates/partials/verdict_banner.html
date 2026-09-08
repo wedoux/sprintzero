@@ -1,0 +1,28 @@
+{# The verdict banner. Single source of truth, rendered in two places:
+
+     1. Progressively, by /ask, the moment </verdict> closes in the stream —
+        roughly 20s into a ~90s synthesis, instead of after all ten sections.
+     2. In the final right_pane render.
+
+   Extracted precisely so those two cannot drift apart: a progressive render
+   that differs from the settled one would flicker or, worse, quietly show
+   something different from what the pane ends up saying.
+
+   Requires: verdict (ElementTree element).
+   Optional: early (bool) — true while the rest of the document is still being
+             written, which the QA gate slot depends on staying empty. #}
+{% set cls = verdict.findtext('classification') %}
+{% set raw_score = verdict.findtext('confidence_score') %}
+{% set score_pct = ((raw_score|float) * 100)|round|int if raw_score else 0 %}
+<div class="verdict-banner {{ cls }}{{ ' verdict-banner-early' if early }}">
+  <div class="verdict-label">Verdict</div>
+  <div class="classification {{ cls }}">{{ cls }}</div>
+  <div class="confidence-row">
+    <span class="confidence-num">Confidence {{ raw_score }}</span>
+    <span class="confidence-bar"><span class="confidence-fill {{ cls }}" style="width: {{ score_pct }}%"></span></span>
+    <span class="confidence-stab">Stability {{ verdict.findtext('stability_status') }}</span>
+  </div>
+  <div class="verdict-summary">{{ verdict.findtext('one_line_verdict') }}</div>
+  {# Filled by the client when /qa returns QA_FAILED. Empty on pass. #}
+  <div id="verdict-gate-slot"></div>
+</div>

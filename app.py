@@ -119,12 +119,21 @@ def sse(event, payload):
     return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
 
 
+VERDICT_FRAGMENT_RE = re.compile(r"<verdict>.*?</verdict>", re.DOTALL)
+
+
 def make_section_reporter(sections):
     """Returns on_progress(text) that emits each section once, in completion order.
 
     Appends to a list rather than yielding, because the Anthropic stream calls
     this synchronously from inside its own loop - the Flask generator drains
-    the list between chunks.
+    the list between chunks. It also runs on the worker thread, which has no
+    Flask app context, so it captures the verdict as raw XML and leaves
+    rendering to the generator.
+
+    The verdict closes roughly 20s into a ~90s synthesis, well before the
+    remaining sections. Emitting it immediately is the difference between the
+    reader seeing the answer at 20s and seeing it at 90s.
     """
     seen = set()
     pending = []
@@ -135,7 +144,11 @@ def make_section_reporter(sections):
                 continue
             if f"</{tag}>" in accumulated:
                 seen.add(tag)
-                pending.append({"tag": tag, "label": label})
+                pending.append({"kind": "progress", "tag": tag, "label": label})
+                if tag == "verdict":
+                    match = VERDICT_FRAGMENT_RE.search(accumulated)
+                    if match:
+                        pending.append({"kind": "verdict", "xml": match.group(0)})
 
     return on_progress, pending
 
@@ -323,7 +336,25 @@ def ask():
         # Drain progress while the model writes.
         while worker.is_alive() or pending:
             while pending:
-                yield sse("progress", pending.pop(0))
+                item = pending.pop(0)
+                if item["kind"] == "verdict":
+                    # Render Tier 1 the moment the verdict closes, rather than
+                    # making the reader wait for the other nine sections. A
+                    # malformed fragment is skipped silently: this is an early
+                    # view, and the settled render still follows in `done`.
+                    try:
+                        element = ET.fromstring(item["xml"])
+                    except ET.ParseError:
+                        continue
+                    yield sse("verdict", {
+                        "html": render_template(
+                            "partials/verdict_banner.html",
+                            verdict=element,
+                            early=True,
+                        ),
+                    })
+                else:
+                    yield sse("progress", item)
             if worker.is_alive():
                 worker.join(timeout=0.15)
 

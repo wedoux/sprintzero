@@ -624,6 +624,17 @@
         .confidence-fill.WEAK { background: var(--strength-weak-fill); }
         .verdict-summary { margin-top: 14px; font-size: 14px; color: var(--ink-800); line-height: 1.55; }
 
+        /* Early verdict: real, but the document beneath it is still being
+           written. Says so rather than implying the analysis is complete. */
+        .verdict-banner-early::after {
+            content: "Synthesis continuing — evidence and reasoning still being written";
+            display: block;
+            margin-top: 13px;
+            font-size: 11px;
+            font-style: italic;
+            color: var(--ink-400);
+        }
+
         /* ---------- QA GATE ACTING ON THE VERDICT (WS1) ----------
            Applied only when /qa returns QA_FAILED. On QA_PASSED none of these
            classes are set and the banner renders exactly as it always has.
@@ -1309,6 +1320,23 @@ function markQaCheckRunning() {
     );
 }
 
+// Swap the skeleton's placeholder verdict for the real one the moment Agent 1
+// commits it - around 20s into a ~90s synthesis. The reader gets the answer
+// while the evidence and reasoning are still being written beneath it, instead
+// of staring at a shimmer for the full run. The settled pane replaces this
+// wholesale when /ask finishes, and both render from the same partial so they
+// cannot disagree.
+function renderEarlyVerdict(html) {
+    const slot = document.getElementById('early-verdict-slot');
+    if (!slot || !html) return;
+    const holder = document.createElement('div');
+    holder.innerHTML = html;
+    const banner = holder.firstElementChild;
+    if (!banner) return;
+    banner.id = 'early-verdict-slot';   // stay idempotent if it ever fires twice
+    slot.replaceWith(banner);
+}
+
 // Tier 1 QA band. Starts pending at /ask; resolved here when /qa lands.
 function setQaBand(state, value, hint) {
     const band = document.getElementById('qa-band');
@@ -1458,6 +1486,8 @@ async function submit(text) {
     }, {
         // Real section completions, streamed as Agent 1 writes them.
         progress: function (p) { logEntry({ text: p.label, cls: '' }); },
+        // The verdict, as soon as it closes - long before the rest.
+        verdict: function (v) { renderEarlyVerdict(v.html); },
     });
 
     if (result.error) {

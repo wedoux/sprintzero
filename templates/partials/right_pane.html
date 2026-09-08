@@ -64,21 +64,7 @@
     </div>
 
     {% if verdict is not none %}
-      {% set cls = verdict.findtext('classification') %}
-      {% set raw_score = verdict.findtext('confidence_score') %}
-      {% set score_pct = ((raw_score|float) * 100)|round|int if raw_score else 0 %}
-      <div class="verdict-banner {{ cls }}">
-        <div class="verdict-label">Verdict</div>
-        <div class="classification {{ cls }}">{{ cls }}</div>
-        <div class="confidence-row">
-          <span class="confidence-num">Confidence {{ raw_score }}</span>
-          <span class="confidence-bar"><span class="confidence-fill {{ cls }}" style="width: {{ score_pct }}%"></span></span>
-          <span class="confidence-stab">Stability {{ verdict.findtext('stability_status') }}</span>
-        </div>
-        <div class="verdict-summary">{{ verdict.findtext('one_line_verdict') }}</div>
-        {# Filled by the client when /qa returns QA_FAILED. Empty on pass. #}
-        <div id="verdict-gate-slot"></div>
-      </div>
+      {% include 'partials/verdict_banner.html' %}
     {% endif %}
 
     {# The single most load-bearing signal, on the pass path. On QA_FAILED the
