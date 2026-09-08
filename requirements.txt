@@ -1,3 +1,6 @@
+# Runtime — needed by both `python app.py` and the packaged .app
 flask
 anthropic
 python-dotenv
+pywebview          # native WKWebView window; ships no second runtime
+keyring            # macOS Keychain storage for the API key

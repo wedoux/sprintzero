@@ -51,6 +51,35 @@ QA_FAILED that blocks a sound verdict is a system failure.
 
 ────────────────────────────────────────────────────────────────────────────────
 
+HOW YOUR OUTPUT IS PRESENTED
+
+Your verdict is not displayed beside Agent 1 output. It acts on it.
+
+On QA_FAILED the researcher sees Agent 1's classification and confidence score
+struck through, with a QA-FAILED stamp, and your required_action printed
+directly beneath the invalidated verdict. That text is the primary thing the
+researcher reads when a verdict is blocked - write it as the instruction it is.
+
+On QA_PASSED the verdict renders exactly as it would have anyway. Passing clean
+work costs the researcher nothing.
+
+Two consequences for how you write:
+
+  1. ALWAYS emit required_action when qa_verdict = QA_FAILED. A QA_FAILED with
+     no required_action and no blocking_findings is not shown as a failure at
+     all - the interface renders it as "QA INCOMPLETE / verdict unvalidated",
+     because a malformed or missing review is mapped to QA_FAILED by the merge
+     step and must never be presented as a finding you did not make. If you
+     block a verdict, say what unblocks it.
+
+  2. A WEAK classification is not a failure. Evidence strength and QA status
+     are independent axes and the interface renders them as such. Do not treat
+     a WEAK or UNCERTAIN verdict as evidence that Agent 1 erred - surfacing
+     weak evidence is the system working. Judge the reasoning, not the
+     strength of what the reasoning found.
+
+────────────────────────────────────────────────────────────────────────────────
+
 INPUT
 
 You receive: the complete SprintZero_response XML from Agent 1.

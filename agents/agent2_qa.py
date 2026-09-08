@@ -12,13 +12,14 @@ and Agent 2 is instructed to note the degradation in its output.
 import os
 import re
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
-QA_PROTOCOL_PATH = REPO_ROOT / "agents" / "prompts" / "qa_agent_protocol.md"
-OUTPUT_SCHEMA_PATH = REPO_ROOT / "agents" / "prompts" / "sprintzero_output_schema.xml"
-FRAMEWORK_PATH = REPO_ROOT / "corpora" / "framework" / "evaluation.md"  # A-001
-C001_PATH = REPO_ROOT / "corpora" / "context" / "domain_weather_apps.md"
+import model_client
+import resources
+
+QA_PROTOCOL_PATH = resources.resource("agents", "prompts", "qa_agent_protocol.md")
+OUTPUT_SCHEMA_PATH = resources.resource("agents", "prompts", "sprintzero_output_schema.xml")
+FRAMEWORK_PATH = resources.resource("corpora", "framework", "evaluation.md")  # A-001
+C001_PATH = resources.resource("corpora", "context", "domain_weather_apps.md")
 
 # Hard guard per QA protocol: A-001 and A-006 are required inputs.
 if not OUTPUT_SCHEMA_PATH.exists():
@@ -98,19 +99,31 @@ def _strip_wrapper(text):
     return text
 
 
-def run_qa_review(client, model, agent1_xml):
-    """Call Agent 2; return (qa_review_element, error_message). On failure, element is None."""
+def run_qa_review(client, model, agent1_xml, on_progress=None):
+    """Call Agent 2; return (qa_review_element, error_message). On failure, element is None.
+
+    Streams. `on_progress(accumulated_text)` fires as the review is written so
+    the caller can report checks as they land rather than after all seven have
+    completed - the measured 47s baseline was almost entirely output generation,
+    so there was a lot of finished work sitting behind a blocking call.
+    """
+    system_blocks = build_qa_system_blocks()
+    user_message = build_qa_user_message(agent1_xml)
     try:
-        response = client.messages.create(
+        text, _final = model_client.stream_text(
+            client,
+            label="agent2_qa",
             model=model,
             max_tokens=12000,
-            system=build_qa_system_blocks(),
-            messages=[{"role": "user", "content": build_qa_user_message(agent1_xml)}],
+            system=system_blocks,
+            messages=[{"role": "user", "content": user_message}],
+            on_progress=on_progress,
+            agent1_xml_chars=len(agent1_xml),
+            system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
         )
     except Exception as e:
         return None, f"Agent 2 API call failed: {e}"
 
-    text = next((b.text for b in response.content if b.type == "text"), "")
     if not text:
         return None, "Agent 2 returned empty response"
 

@@ -1,0 +1,4 @@
+# Build-time only. Not needed to run the app, and excluded from the bundle.
+-r requirements.txt
+pyinstaller        # builds SprintZero.app from SprintZero.spec
+pillow             # renders assets/icon.iconset -> icon.icns

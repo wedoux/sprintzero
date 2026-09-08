@@ -1,9 +1,11 @@
 {# Agent 2 surface: divider + Agent 2 banner + QA stamp + qa_note + sections.
    Used both by right_pane.html (when qa_review already exists on the root) and
    by the /qa endpoint when Agent 2 completes and the skeleton is swapped out.
-   Requires: root (ElementTree), qa_checks (list). #}
+   Requires: root (ElementTree), qa_checks (list).
+   Optional: qa_degraded (bool) - QA_FAILED with no reason attached. #}
 {% set qr = root.find('qa_review') %}
 {% set qa_status = root.findtext('attributes/qa_status') %}
+{% set degraded = qa_degraded|default(false) %}
 
 <div class="agent-divider">
   <div class="agent-divider-line"></div>
@@ -17,9 +19,20 @@
     <div class="agent-role">independent review</div>
   </header>
 
-  <div class="qa-stamp-large {{ qa_status }}">
+  <div class="qa-stamp-large {{ qa_status }}{{ ' qa-degraded' if degraded }}">
     <div class="qa-stamp-label">QA verdict</div>
-    <div class="qa-stamp-value {{ qa_status }}">{{ qa_status }}</div>
+    {% if degraded %}
+      {# merge_qa_review maps an unknown or missing qa_verdict to QA_FAILED, so a
+         malformed Agent 2 response reaches here looking like a real failure.
+         Report what actually happened instead. #}
+      <div class="qa-stamp-value {{ qa_status }} qa-degraded">QA INCOMPLETE</div>
+      <div class="qa-degraded-note">
+        Agent 2 did not return a usable review. The verdict is unvalidated —
+        this is not a finding against the analysis.
+      </div>
+    {% else %}
+      <div class="qa-stamp-value {{ qa_status }}">{{ qa_status }}</div>
+    {% endif %}
   </div>
 
   {% set stamp = qr.find('overall_qa_stamp') %}

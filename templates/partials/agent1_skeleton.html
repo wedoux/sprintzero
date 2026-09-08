@@ -1,8 +1,9 @@
 {# Agent 1 skeleton: shown immediately when the user submits, before /ask returns.
    JS swaps the entire right pane innerHTML with the real right_pane.html once /ask
-   resolves. Matches the agent1 surface shape so the swap doesn't reflow visibly. #}
+   resolves. Mirrors the WS3 layered layout — decision band, signal strip, grouped
+   Tier 3 rows — so the swap doesn't reflow visibly. #}
 
-<section class="agent-surface agent1-surface agent1-skeleton-surface">
+<section class="decision-band agent1-skeleton-surface">
   <header class="agent-banner agent1-banner">
     <div class="agent-name">Agent 1 · Research Copilot</div>
     <div class="agent-role">primary synthesis</div>
@@ -11,6 +12,12 @@
       Running
     </span>
   </header>
+
+  <div class="qa-band qa-band-pending">
+    <span class="qa-band-dot"></span>
+    <span class="qa-band-label">QA validation</span>
+    <span class="qa-band-value">Awaiting synthesis…</span>
+  </div>
 
   <div class="verdict-banner agent1-skeleton-verdict">
     <div class="verdict-label">Verdict</div>
@@ -27,11 +34,22 @@
     </div>
   </div>
 
-  <div class="spine">
-    <div class="agent1-skeleton-row">
-      <div class="skeleton-bar skeleton-bar-row-title"></div>
-      <div class="skeleton-bar skeleton-bar-row-meta"></div>
-    </div>
+  <div class="lead-signal">
+    <div class="lead-signal-label">What this changes</div>
+    <div class="skeleton-bar"></div>
+    <div class="skeleton-bar skeleton-bar-short"></div>
+  </div>
+</section>
+
+<div class="signal-strip">
+  <div class="skeleton-bar skeleton-bar-chip"></div>
+  <div class="skeleton-bar skeleton-bar-chip"></div>
+  <div class="skeleton-bar skeleton-bar-chip"></div>
+</div>
+
+<div class="spine">
+  <div class="tier3-group">
+    <div class="tier3-group-label">Reasoning &amp; evidence</div>
     <div class="agent1-skeleton-row">
       <div class="skeleton-bar skeleton-bar-row-title"></div>
       <div class="skeleton-bar skeleton-bar-row-meta"></div>
@@ -45,4 +63,11 @@
       <div class="skeleton-bar skeleton-bar-row-meta"></div>
     </div>
   </div>
-</section>
+  <div class="tier3-group">
+    <div class="tier3-group-label">Framing</div>
+    <div class="agent1-skeleton-row">
+      <div class="skeleton-bar skeleton-bar-row-title"></div>
+      <div class="skeleton-bar skeleton-bar-row-meta"></div>
+    </div>
+  </div>
+</div>
