@@ -301,71 +301,120 @@ def ask():
     system_blocks = build_system_blocks(corpora, project_state, query_id)
 
     def generate():
-        on_progress, pending = make_section_reporter(AGENT1_PROGRESS)
-        result = {}
+        box = {}
 
-        def run():
-            try:
-                text, _ = model_client.stream_text(
-                    client,
-                    label="agent1_synthesis",
-                    model=AGENT1_MODEL,
-                    max_tokens=16000,
-                    system=system_blocks,
-                    messages=[{"role": "user", "content": question}],
-                    on_progress=on_progress,
-                    query_id=query_id,
-                    system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
-                )
-                result["text"] = text
-            except anthropic.AuthenticationError:
-                credentials.clear_keychain()
-                result["error"] = (
-                    "Invalid API key. The stored key has been cleared — "
-                    "restart SprintZero to enter a new one, or set "
-                    "ANTHROPIC_API_KEY in the environment."
-                )
-            except anthropic.APIError as e:
-                result["error"] = f"API error: {getattr(e, 'message', e)}"
-            except Exception as e:  # noqa: BLE001 - surfaced to the user, not swallowed
-                result["error"] = f"Agent 1 failed: {e}"
+        def run_attempt():
+            """One Agent 1 generation, yielding its progress frames as it goes.
 
-        worker = threading.Thread(target=run, daemon=True)
-        worker.start()
+            A fresh reporter per attempt, deliberately: on a retry the reader
+            should see the sections land again, not sit in silence because the
+            tags were already reported once.
+            """
+            on_progress, pending = make_section_reporter(AGENT1_PROGRESS)
+            result = {}
 
-        # Drain progress while the model writes.
-        while worker.is_alive() or pending:
-            while pending:
-                item = pending.pop(0)
-                if item["kind"] == "verdict":
-                    # Render Tier 1 the moment the verdict closes, rather than
-                    # making the reader wait for the other nine sections. A
-                    # malformed fragment is skipped silently: this is an early
-                    # view, and the settled render still follows in `done`.
-                    try:
-                        element = ET.fromstring(item["xml"])
-                    except ET.ParseError:
-                        continue
-                    yield sse("verdict", {
-                        "html": render_template(
-                            "partials/verdict_banner.html",
-                            verdict=element,
-                            early=True,
-                        ),
+            def run():
+                try:
+                    text, _ = model_client.stream_text(
+                        client,
+                        label="agent1_synthesis",
+                        model=AGENT1_MODEL,
+                        max_tokens=16000,
+                        system=system_blocks,
+                        messages=[{"role": "user", "content": question}],
+                        on_progress=on_progress,
+                        query_id=query_id,
+                        system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
+                    )
+                    result["text"] = text
+                except anthropic.AuthenticationError:
+                    credentials.clear_keychain()
+                    result["error"] = (
+                        "Invalid API key. The stored key has been cleared — "
+                        "restart SprintZero to enter a new one, or set "
+                        "ANTHROPIC_API_KEY in the environment."
+                    )
+                except anthropic.APIError as e:
+                    result["error"] = f"API error: {getattr(e, 'message', e)}"
+                except Exception as e:  # noqa: BLE001 - surfaced, not swallowed
+                    result["error"] = f"Agent 1 failed: {e}"
+
+            worker = threading.Thread(target=run, daemon=True)
+            worker.start()
+
+            # Drain progress while the model writes.
+            while worker.is_alive() or pending:
+                while pending:
+                    item = pending.pop(0)
+                    if item["kind"] == "verdict":
+                        # Render Tier 1 the moment the verdict closes, rather
+                        # than making the reader wait for the other nine
+                        # sections. A malformed fragment is skipped silently:
+                        # this is an early view, and the settled render follows.
+                        try:
+                            element = ET.fromstring(item["xml"])
+                        except ET.ParseError:
+                            continue
+                        yield sse("verdict", {
+                            "html": render_template(
+                                "partials/verdict_banner.html",
+                                verdict=element,
+                                early=True,
+                            ),
+                        })
+                    else:
+                        yield sse("progress", item)
+                if worker.is_alive():
+                    worker.join(timeout=0.15)
+
+            box.clear()
+            box.update(result)
+
+        # The model intermittently emits structurally invalid XML - a mismatched
+        # tag, roughly one run in six - and the whole ~80s generation is lost
+        # when it does. One retry, because a fresh sample almost always parses
+        # and the alternative is handing the researcher nothing. The malformed
+        # output is written to disk either way: it used to exist only in the
+        # browser pane that reported it, which made a rare fault unfixable.
+        root = None
+        raw_answer = ""
+        parse_error = None
+        saved = []
+
+        for attempt in (1, 2):
+            if attempt == 2:
+                yield sse("progress", {
+                    "kind": "progress",
+                    "tag": "retry",
+                    "label": "Output was not valid XML — retrying synthesis",
+                    "retry": True,
+                })
+
+            yield from run_attempt()
+
+            if "error" in box:
+                yield sse("error", {"error": box["error"]})
+                return
+
+            raw_answer = box.get("text", "")
+            root, parse_error = parse_response(raw_answer)
+            if root is not None:
+                if attempt == 2:
+                    yield sse("progress", {
+                        "kind": "progress",
+                        "tag": "retry_ok",
+                        "label": "Retry produced valid output",
                     })
-                else:
-                    yield sse("progress", item)
-            if worker.is_alive():
-                worker.join(timeout=0.15)
+                break
 
-        if "error" in result:
-            yield sse("error", {"error": result["error"]})
-            return
+            path = instrumentation.save_failed_output(
+                "agent1", raw_answer, parse_error,
+                attempt=attempt, query_id=query_id,
+            )
+            if path:
+                saved.append(str(path))
 
-        raw_answer = result.get("text", "")
-        root, parse_error = parse_response(raw_answer)
-
-        if parse_error:
+        if root is None:
             yield sse("done", {
                 "response_type": "PARSE_ERROR",
                 "chat_html": render_template(
@@ -378,6 +427,8 @@ def ask():
                     response_type="PARSE_ERROR",
                     parse_error=parse_error,
                     raw_answer=raw_answer,
+                    saved_paths=saved,
+                    attempts=2,
                 ),
                 "query_id": query_id,
             })

@@ -47,5 +47,17 @@ def state_dir():
     return path
 
 
+def diagnostics_dir():
+    """Where malformed model output is kept so a failure can be looked at later.
+
+    Beside the state, so it follows the same repo-vs-Application-Support split:
+    a failure during a live session is otherwise unrecoverable, because the raw
+    output only ever existed in a browser pane.
+    """
+    path = STATE_ROOT / "state" / "failures"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def read_text(*parts):
     return resource(*parts).read_text(encoding="utf-8")
