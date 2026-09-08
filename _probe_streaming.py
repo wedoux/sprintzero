@@ -57,11 +57,14 @@ if resp.mimetype != "text/event-stream":
     out(f"FAIL: /ask returned {resp.mimetype}, expected text/event-stream\n")
     sys.exit(1)
 
-ask_progress, ask_done = [], None
+ask_progress, ask_done, early_verdict = [], None, None
 for name, payload, at in read_sse(resp, start):
     if name == "progress":
         ask_progress.append((payload["label"], at))
         out(f"  [{at:6.1f}s] {payload['label']}\n")
+    elif name == "verdict":
+        early_verdict = (payload.get("html", ""), at)
+        out(f"  [{at:6.1f}s] >>> EARLY VERDICT rendered\n")
     elif name == "done":
         ask_done = payload
         out(f"  [{at:6.1f}s] done — {payload.get('response_type')}\n")
@@ -90,6 +93,40 @@ if ask_progress and ask_total:
             f"/ask progress is back-loaded: first event at {first:.1f}s of "
             f"{ask_total:.1f}s. The reader still waits in the dark."
         )
+
+# --- the early verdict: the whole point is that it beats the full document ---
+if ask_done and ask_done.get("response_type") in ("EVALUATION", "GAP_FLAG"):
+    if early_verdict is None:
+        violations.append(
+            "NO EARLY VERDICT: a synthesis response emitted no verdict event. "
+            "The reader waits for all ten sections to see the answer."
+        )
+    else:
+        html, at = early_verdict
+        out(f"\n  early verdict at {at:.1f}s of {ask_total:.1f}s "
+            f"({at / ask_total:.0%} in) — saved {ask_total - at:.1f}s of waiting\n")
+        if at > ask_total * 0.7:
+            violations.append(
+                f"EARLY VERDICT TOO LATE: arrived at {at:.1f}s of {ask_total:.1f}s. "
+                "It should land with the verdict, not near the end."
+            )
+        if "classification" not in html:
+            violations.append("EARLY VERDICT: rendered html carries no classification.")
+        if "verdict-banner" not in html:
+            violations.append("EARLY VERDICT: rendered html is not a verdict banner.")
+        # Must agree with what the settled pane ends up showing.
+        import re as _re
+        m = _re.search(r'<div class="classification ([A-Z]+)"', html)
+        final = _re.search(r'<div class="classification ([A-Z]+)"',
+                           ask_done.get("right_pane_html", ""))
+        if m and final and m.group(1) != final.group(1):
+            violations.append(
+                f"EARLY VERDICT DISAGREES with the settled pane: "
+                f"{m.group(1)} then {final.group(1)}. The reader saw one answer "
+                "replaced by another."
+            )
+        elif m and final:
+            out(f"  early and settled agree: {m.group(1)}\n")
 
 # ---------------------------------------------------------------- /qa stream
 qa_done = None

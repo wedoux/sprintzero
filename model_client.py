@@ -52,7 +52,7 @@ FAST_MODE = os.environ.get("SPRINTZERO_FAST_MODE", "0") != "0"
 
 
 def stream_text(client, *, label, model, max_tokens, system, messages,
-                on_progress=None, **meta):
+                on_progress=None, effort=None, thinking=None, **meta):
     """Stream one completion. Returns (text, final_message).
 
     `on_progress(accumulated_text)` is called as deltas arrive so the caller can
@@ -70,6 +70,12 @@ def stream_text(client, *, label, model, max_tokens, system, messages,
             "system": system,
             "messages": messages,
         }
+        # Only sent when explicitly set, so the default request shape - and
+        # therefore the cached prefix and the measured baseline - is unchanged.
+        if effort is not None:
+            kwargs["output_config"] = {"effort": effort}
+        if thinking is not None:
+            kwargs["thinking"] = thinking
         if use_fast:
             kwargs["speed"] = "fast"
             kwargs["betas"] = [FAST_MODE_BETA]
@@ -107,5 +113,6 @@ def stream_text(client, *, label, model, max_tokens, system, messages,
 
     elapsed = perf_counter() - start
     instrumentation.record(label, elapsed, response=final, model=model,
-                           fast_mode=used_fast, streamed=True, **meta)
+                           fast_mode=used_fast, streamed=True,
+                           effort=effort, **meta)
     return text, final
