@@ -6,6 +6,7 @@ import anthropic
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
+import instrumentation
 import state
 from agents import agent2_qa
 
@@ -200,12 +201,19 @@ def ask():
     project_state = state.load_state()
     query_id = state.generate_query_id(project_state)
 
+    system_blocks = build_system_blocks(corpora, project_state, query_id)
     try:
-        response = client.messages.create(
+        response = instrumentation.observe(
+            "agent1_synthesis",
+            lambda: client.messages.create(
+                model=MODEL,
+                max_tokens=16000,
+                system=system_blocks,
+                messages=[{"role": "user", "content": question}],
+            ),
             model=MODEL,
-            max_tokens=16000,
-            system=build_system_blocks(corpora, project_state, query_id),
-            messages=[{"role": "user", "content": question}],
+            query_id=query_id,
+            system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
         )
     except anthropic.AuthenticationError:
         return jsonify({"error": "Invalid API key. Check ANTHROPIC_API_KEY in .env."}), 500

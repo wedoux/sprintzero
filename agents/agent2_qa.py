@@ -14,6 +14,8 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import instrumentation
+
 REPO_ROOT = Path(__file__).parent.parent
 QA_PROTOCOL_PATH = REPO_ROOT / "agents" / "prompts" / "qa_agent_protocol.md"
 OUTPUT_SCHEMA_PATH = REPO_ROOT / "agents" / "prompts" / "sprintzero_output_schema.xml"
@@ -100,12 +102,20 @@ def _strip_wrapper(text):
 
 def run_qa_review(client, model, agent1_xml):
     """Call Agent 2; return (qa_review_element, error_message). On failure, element is None."""
+    system_blocks = build_qa_system_blocks()
+    user_message = build_qa_user_message(agent1_xml)
     try:
-        response = client.messages.create(
+        response = instrumentation.observe(
+            "agent2_qa",
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=12000,
+                system=system_blocks,
+                messages=[{"role": "user", "content": user_message}],
+            ),
             model=model,
-            max_tokens=12000,
-            system=build_qa_system_blocks(),
-            messages=[{"role": "user", "content": build_qa_user_message(agent1_xml)}],
+            agent1_xml_chars=len(agent1_xml),
+            system_prefix_chars=sum(len(b["text"]) for b in system_blocks),
         )
     except Exception as e:
         return None, f"Agent 2 API call failed: {e}"
