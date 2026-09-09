@@ -59,5 +59,59 @@ def diagnostics_dir():
     return path
 
 
+# ---------------------------------------------------------------- projects
+# Everything below is per-project writable state. It follows the same
+# repo-vs-Application-Support split as state_dir(): a packaged app keeps its
+# projects in Application Support, so they survive an app update, while a dev
+# run keeps them in the repo. The two do not see each other, by design.
+
+
+def projects_root():
+    path = STATE_ROOT / "state" / "projects"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def projects_index_path():
+    """The list of projects shown on the landing screen."""
+    return STATE_ROOT / "state" / "projects.json"
+
+
+# These four RESOLVE a path; they deliberately do not create it. Creating on
+# read meant that merely looking up a project — including from a mistyped URL —
+# left an empty directory behind that then looked like a real project. Writers
+# create what they need; state._write_json already mkdirs its parent, and
+# Path.glob on a missing directory returns nothing rather than raising.
+
+
+def project_dir(project_id):
+    return projects_root() / project_id
+
+
+def reference_dir(project_id, create=False):
+    """User-supplied reference data for one project."""
+    path = project_dir(project_id) / "reference"
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def history_dir(project_id, create=False):
+    """One record per evaluated theme."""
+    path = project_dir(project_id) / "history"
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def legacy_state_file():
+    """The single hard-coded project's state file, pre-multi-project.
+
+    Named here rather than in state.py so the migration has one place to look
+    and does not re-derive the old layout.
+    """
+    return STATE_ROOT / "state" / "weather-underground-redesign.json"
+
+
 def read_text(*parts):
     return resource(*parts).read_text(encoding="utf-8")

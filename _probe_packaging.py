@@ -34,6 +34,12 @@ if not BUNDLE.exists():
 # --- 1. Required resources, at the paths resources.resource() will ask for ---
 REQUIRED = [
     "templates/index.html",
+    "templates/landing.html",
+    "templates/partials/styles.html",
+    "templates/partials/reference_panel.html",
+    "templates/partials/verdict_banner.html",
+    "templates/history.html",
+    "templates/history_detail.html",
     "templates/partials/right_pane.html",
     "templates/partials/qa_surface.html",
     "templates/partials/verdict_invalidation.html",
@@ -149,11 +155,16 @@ if not violations and os.environ.get("SPRINTZERO_SKIP_LAUNCH") != "1":
         print(f"launch test: bundle served HTTP {status}, {len(body):,} bytes")
         if status != 200:
             violations.append(f"LAUNCH FAILURE: bundle served HTTP {status}.")
-        for marker in ("qa-band", "signal-strip", "tier3-group", "streamPhase"):
+        # "/" is the landing screen. A packaged app starts with no projects -
+        # user state lives in Application Support and nothing is seeded - so
+        # the workspace markers cannot be asserted here. What must be true is
+        # that the landing template and the shared stylesheet both bundled.
+        for marker in ("New project", "Create project", "--strength-weak-ink",
+                       "Research objective"):
             if marker not in body:
                 violations.append(
-                    f"LAUNCH: served page is missing {marker!r} — the bundled "
-                    "templates are stale or incomplete."
+                    f"LAUNCH: served landing page is missing {marker!r} — the "
+                    "bundled templates or stylesheet are stale or incomplete."
                 )
 
 print("===== PACKAGING ASSERTIONS =====")

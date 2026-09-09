@@ -14,7 +14,7 @@
 {% set cls = verdict.findtext('classification') %}
 {% set raw_score = verdict.findtext('confidence_score') %}
 {% set score_pct = ((raw_score|float) * 100)|round|int if raw_score else 0 %}
-<div class="verdict-banner {{ cls }}{{ ' verdict-banner-early' if early }}">
+<div class="verdict-banner {{ cls }}{{ ' verdict-banner-early' if early }}{{ ' qa-invalidated' if replay_gate }}{{ ' qa-degraded' if replay_gate and qa_degraded }}">
   <div class="verdict-label">Verdict</div>
   <div class="classification {{ cls }}">{{ cls }}</div>
   <div class="confidence-row">
@@ -23,6 +23,11 @@
     <span class="confidence-stab">Stability {{ verdict.findtext('stability_status') }}</span>
   </div>
   <div class="verdict-summary">{{ verdict.findtext('one_line_verdict') }}</div>
-  {# Filled by the client when /qa returns QA_FAILED. Empty on pass. #}
-  <div id="verdict-gate-slot"></div>
+  {# Filled by the client when /qa returns QA_FAILED. Empty on pass.
+     When re-rendering a stored verdict there is no client to fill it, so the
+     gate fragment is rendered server-side from the saved document instead —
+     a past failure must look the way it looked at the time. #}
+  <div id="verdict-gate-slot">
+    {%- if replay_gate %}{% include 'partials/verdict_invalidation.html' %}{% endif -%}
+  </div>
 </div>

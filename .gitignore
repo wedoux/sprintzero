@@ -7,3 +7,5 @@ state/latency_trace.jsonl
 build/
 dist/
 state/failures/
+state/projects/
+state/projects.json

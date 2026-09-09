@@ -1,0 +1,104 @@
+{# Reference data for the open project: what is loaded, and how to add more.
+
+   Replaces the static knowledge-base card. Every asset listed here is sent in
+   full with every query against this project, so the panel shows size — that
+   number is the query's cost and latency, and hiding it would make the app
+   feel mysteriously slower as evidence accumulates.
+
+   Requires: loaded_files, project_state, source_types.
+   Optional: reference_error. #}
+
+<div class="kb-card">
+  <div class="kb-label">Knowledge base</div>
+  <ul class="kb-list">
+    {% for group in loaded_files %}
+    <li>
+      <div>
+        <strong>{{ group.label }}:</strong>
+        {{ group['items'] | map(attribute='name') | join(', ') }}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% set registry = project_state.registry or [] %}
+  {% if registry %}
+  <div class="ref-total">
+    {{ registry | sum(attribute='chars') }} characters across
+    {{ registry | length }} reference file{{ '' if registry|length == 1 else 's' }},
+    sent with every query.
+  </div>
+  {% endif %}
+
+  <div class="kb-history">
+    <a href="/projects/{{ project_state.project_id }}/history">
+      Evaluated themes ({{ history_count }}) →
+    </a>
+  </div>
+
+  <details class="ref-manage">
+    <summary>Manage reference data</summary>
+
+    {% if reference_error %}
+    <div class="ref-error">{{ reference_error }}</div>
+    {% endif %}
+
+    {% if registry %}
+    <ul class="ref-list">
+      {% for entry in registry %}
+      <li class="ref-item">
+        <div class="ref-item-main">
+          <span class="ref-id">{{ entry.id }}</span>
+          <span class="ref-title">{{ entry.title }}</span>
+        </div>
+        <div class="ref-item-meta">
+          {{ source_types.get(entry.source_type, {}).get('label', entry.source_type) }}
+          {% if entry.unit_count %}· {{ entry.unit_count }} units ({{ entry.unit_prefix }}…){% endif %}
+          {% if entry.pre_annotated %}· pre-annotated{% endif %}
+          · {{ entry.chars }} chars
+        </div>
+        <form method="POST"
+              action="/projects/{{ project_state.project_id }}/reference/{{ entry.id }}/delete"
+              onsubmit="return confirm('Remove {{ entry.id }}? Past verdicts that cite it will keep their citations, but it will not be used again.');">
+          <button class="ref-remove" type="submit" title="Remove">Remove</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="ref-empty">
+      No reference data yet. Themes cannot be evaluated without evidence to
+      evaluate them against.
+    </div>
+    {% endif %}
+
+    <form class="ref-add" method="POST"
+          action="/projects/{{ project_state.project_id }}/reference"
+          enctype="multipart/form-data">
+      <div class="ref-field">
+        <label for="ref-title">Title</label>
+        <input type="text" id="ref-title" name="title"
+               placeholder="App Store reviews, 2024">
+      </div>
+      <div class="ref-field">
+        <label for="ref-source">Source type</label>
+        <select id="ref-source" name="source_type">
+          {% for key, spec in source_types.items() %}
+          <option value="{{ key }}">{{ spec.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="ref-field">
+        <label for="ref-paste">Paste text</label>
+        <textarea id="ref-paste" name="pasted_text" rows="4"
+                  placeholder="Paste reviews, transcript, notes… Blank lines separate evidence units."></textarea>
+      </div>
+      <div class="ref-field">
+        <label for="ref-files">…or upload files</label>
+        <input type="file" id="ref-files" name="files" multiple accept=".txt,.md,.markdown">
+        <div class="ref-help">Plain text or Markdown. PDF is not supported yet.</div>
+      </div>
+      <button class="ref-submit" type="submit">Add reference data</button>
+    </form>
+  </details>
+</div>

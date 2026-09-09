@@ -49,10 +49,13 @@ def read_sse(response, start):
 violations = []
 client = app.app.test_client()
 
+# Endpoints are project-scoped; exercise the migrated founding project.
+PROJECT = "weather-underground-redesign"
+
 # --------------------------------------------------------------- /ask stream
 out("===== /ask =====\n")
 start = perf_counter()
-resp = client.post("/ask", data={"question": THEME})
+resp = client.post(f"/projects/{PROJECT}/ask", data={"question": THEME})
 if resp.mimetype != "text/event-stream":
     out(f"FAIL: /ask returned {resp.mimetype}, expected text/event-stream\n")
     sys.exit(1)
@@ -133,7 +136,11 @@ qa_done = None
 if ask_done and ask_done.get("agent1_xml"):
     out("\n===== /qa =====\n")
     start = perf_counter()
-    resp = client.post("/qa", json={"agent1_xml": ask_done["agent1_xml"]})
+    resp = client.post(f"/projects/{PROJECT}/qa", json={
+        "agent1_xml": ask_done["agent1_xml"],
+        "query_id": ask_done.get("query_id"),
+        "theme": THEME,
+    })
     if resp.mimetype != "text/event-stream":
         violations.append(f"/qa returned {resp.mimetype}, expected text/event-stream")
     else:
@@ -172,6 +179,23 @@ if ask_done and ask_done.get("agent1_xml"):
             violations.append("/qa never emitted a done frame.")
         elif not qa_done.get("qa_html"):
             violations.append("/qa done frame carries no qa_html.")
+
+# --- the verdict must be recorded against the project -----------------------
+if qa_done is not None:
+    import history
+    record = history.load(PROJECT, ask_done.get("query_id"))
+    if record is None:
+        violations.append(
+            f"NOT RECORDED: {ask_done.get('query_id')} completed but no history "
+            "record was written. The verdict would vanish with the tab."
+        )
+    else:
+        out(f"\n  recorded as {record['query_id']}: {record.get('classification')} "
+            f"/ {record.get('qa_status')}\n")
+        if record.get("theme") != THEME:
+            violations.append("RECORD: the stored theme does not match what was asked.")
+        if not record.get("document_xml"):
+            violations.append("RECORD: no document stored; the verdict cannot be replayed.")
 
 print("\n===== STREAMING ASSERTIONS =====")
 if violations:

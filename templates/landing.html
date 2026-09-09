@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SprintZero · Projects</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2360A5FA'/><stop offset='60%25' stop-color='%233B82F6'/><stop offset='100%25' stop-color='%231E3A8A'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='16' y='22' font-family='-apple-system, sans-serif' font-size='14' font-weight='800' text-anchor='middle' fill='white' letter-spacing='-0.5'>S0</text></svg>">
+    {% include 'partials/styles.html' %}
+    <style>
+        /* Landing-only layout. Everything visual comes from the shared tokens. */
+        .landing { max-width: 940px; margin: 0 auto; padding: 56px 32px 72px 32px; }
+        .landing-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+        .landing-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink-900); }
+        .landing-sub { color: var(--ink-500); font-size: 13.5px; margin-bottom: 34px; max-width: 62ch; line-height: 1.6; }
+
+        .section-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.11em;
+            font-weight: 700; color: var(--ink-400); margin: 0 0 10px 2px;
+        }
+
+        .project-grid { display: grid; gap: 10px; margin-bottom: 40px; }
+        .project-tile {
+            display: block; text-decoration: none; color: inherit;
+            background: white; border: 1px solid var(--line-200);
+            border-radius: var(--radius-lg); padding: 16px 18px;
+            box-shadow: var(--shadow-sm);
+            transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+        }
+        .project-tile:hover { border-color: var(--navy-300); box-shadow: var(--shadow-md); }
+        .project-tile:active { transform: translateY(1px); }
+        .project-tile-top { display: flex; align-items: center; gap: 10px; }
+        .project-tile-name { font-weight: 700; font-size: 14.5px; color: var(--ink-900); letter-spacing: -0.01em; }
+        .project-tile-meta { margin-top: 5px; font-size: 12px; color: var(--ink-500); }
+
+        /* Setup state is the one thing worth flagging on this screen: an
+           incomplete project will open into an intake conversation, not a
+           verdict, and the reader should know that before clicking. */
+        .setup-pill {
+            margin-left: auto; flex-shrink: 0;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; padding: 3px 9px;
+            border-radius: var(--radius-full);
+            background: var(--attention-bg-b); color: var(--attention-ink);
+        }
+        .ready-pill {
+            margin-left: auto; flex-shrink: 0;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; padding: 3px 9px;
+            border-radius: var(--radius-full);
+            background: var(--qa-pass-soft); color: var(--qa-pass-ink);
+        }
+
+        .empty-projects {
+            border: 1px dashed var(--line-200); border-radius: var(--radius-lg);
+            padding: 30px; text-align: center; color: var(--ink-500);
+            font-size: 13px; margin-bottom: 40px; background: var(--bg-50);
+        }
+
+        .new-project {
+            background: white; border: 1px solid var(--line-200);
+            border-radius: var(--radius-lg); padding: 22px 24px 24px 24px;
+            box-shadow: var(--shadow-sm);
+        }
+        .field-row { margin-bottom: 16px; }
+        .field-row:last-of-type { margin-bottom: 20px; }
+        .field-row label {
+            display: block; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.07em;
+            color: var(--ink-600); margin-bottom: 6px;
+        }
+        .field-help { font-size: 12px; color: var(--ink-400); margin-top: 5px; line-height: 1.5; }
+        .field-row input[type="text"], .field-row textarea, .field-row select {
+            width: 100%; font-family: inherit; font-size: 13.5px; color: var(--ink-900);
+            padding: 10px 12px; background: var(--bg-50);
+            border: 1px solid var(--line-200); border-radius: var(--radius-md);
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .field-row textarea { min-height: 74px; resize: vertical; line-height: 1.55; }
+        .field-row input:focus, .field-row textarea:focus, .field-row select:focus {
+            outline: none; border-color: var(--navy-300); background: white;
+        }
+        .create-btn {
+            font-family: inherit; font-size: 13.5px; font-weight: 700;
+            padding: 10px 20px; border: 0; border-radius: var(--radius-md);
+            background: var(--navy-700); color: white; cursor: pointer;
+            transition: background 0.15s;
+        }
+        .create-btn:hover { background: var(--navy-900); }
+        .create-error {
+            margin-bottom: 16px; padding: 11px 14px;
+            background: var(--qa-fail-bg-a); border: 1px solid var(--qa-fail-rule);
+            border-radius: var(--radius-md); color: var(--qa-fail-ink); font-size: 13px;
+        }
+        .intake-note {
+            margin-top: 16px; font-size: 12px; color: var(--ink-500);
+            line-height: 1.6; max-width: 68ch;
+        }
+    </style>
+</head>
+<body>
+<div class="landing">
+    <div class="landing-head">
+        <span class="logo" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 32 32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#60A5FA"/><stop offset="60%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#1E3A8A"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lg)"/><text x="16" y="22" font-family="-apple-system, sans-serif" font-size="14" font-weight="800" text-anchor="middle" fill="white" letter-spacing="-0.5">S0</text></svg>
+        </span>
+        <span class="landing-title">SprintZero</span>
+    </div>
+    <div class="landing-sub">
+        Evidence-grounded research synthesis. Each project holds its own reference
+        data and its own record of every theme evaluated against it.
+    </div>
+
+    <div class="section-label">Projects</div>
+    {% if projects %}
+    <div class="project-grid">
+        {% for p in projects %}
+        <a class="project-tile" href="/projects/{{ p.project_id }}">
+            <div class="project-tile-top">
+                <span class="project-tile-name">{{ p.project_name }}</span>
+                {% if p.context_completeness == 'COMPLETE' %}
+                <span class="ready-pill">Ready</span>
+                {% else %}
+                <span class="setup-pill">Setup unfinished</span>
+                {% endif %}
+            </div>
+            <div class="project-tile-meta">
+                {{ p.reference_count }} reference file{{ '' if p.reference_count == 1 else 's' }}
+                · {{ p.history_count }} evaluated theme{{ '' if p.history_count == 1 else 's' }}
+                {% if p.last_opened_at %}· last opened {{ p.last_opened_at[:10] }}{% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-projects">
+        No projects yet. Create one below to get started.
+    </div>
+    {% endif %}
+
+    <div class="section-label">New project</div>
+    <div class="new-project">
+        {% if error %}<div class="create-error">{{ error }}</div>{% endif %}
+        <form method="POST" action="/projects">
+            <div class="field-row">
+                <label for="project_name">Project name</label>
+                <input type="text" id="project_name" name="project_name"
+                       value="{{ form.project_name or '' }}"
+                       placeholder="Weather Underground iOS — Trust Investigation" required>
+            </div>
+
+            <div class="field-row">
+                <label for="project_type">Project type</label>
+                <select id="project_type" name="project_type">
+                    {% for value, label in project_types %}
+                    <option value="{{ value }}" {{ 'selected' if form.project_type == value }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="field-help">Determines what counts as an insight in this context.</div>
+            </div>
+
+            <div class="field-row">
+                <label for="research_objective">Research objective</label>
+                <textarea id="research_objective" name="research_objective"
+                          placeholder="Determine whether reported forecast inaccuracy is a forecast-model problem or a data-freshness problem, and which workstream should own the fix."
+                          required>{{ form.research_objective or '' }}</textarea>
+                <div class="field-help">
+                    Narrow enough to scope what counts as relevant evidence. This is the
+                    single most load-bearing field on this form.
+                </div>
+            </div>
+
+            <button class="create-btn" type="submit">Create project</button>
+
+            <div class="intake-note">
+                These three get you started. The copilot will ask for what else it
+                needs — decisions pending, target market, constraints — the first time
+                you submit a theme, and the project is marked ready once that is
+                answered.
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

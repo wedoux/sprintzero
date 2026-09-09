@@ -12,7 +12,8 @@ import re
 import sys
 from pathlib import Path
 
-INDEX = Path(__file__).parent / "templates" / "index.html"
+# The design system lives in its own partial, shared by every screen.
+INDEX = Path(__file__).parent / "templates" / "partials" / "styles.html"
 css = INDEX.read_text(encoding="utf-8")
 
 # Semantic colour that must never touch the evidence-strength axis.

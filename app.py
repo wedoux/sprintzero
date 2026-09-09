@@ -8,10 +8,15 @@ import anthropic
 from dotenv import load_dotenv
 
 import credentials
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context
+from urllib.parse import quote
 
+from flask import (Flask, Response, abort, jsonify, redirect, render_template,
+                   request, stream_with_context, url_for)
+
+import history
 import instrumentation
 import model_client
+import reference
 import resources
 import state
 from agents import agent2_qa
@@ -187,16 +192,34 @@ SPRINTZERO_RESPONSE_RE = re.compile(
 )
 
 
-def load_corpora():
+# Which roles ship with the app rather than belonging to a project. The
+# framework (A-001) is a system asset - Agent 2 hard-requires it at import -
+# and context holds domain knowledge shared across projects. Corpus is the
+# researcher's own evidence and comes from the project, never from here.
+GLOBAL_ROLES = ("framework", "context")
+
+
+def load_corpora(project=None):
+    """Framework and context ship with the app; corpus belongs to the project.
+
+    Called with no project only by tooling that needs the global assets.
+    """
     loaded = {role: [] for role in ROLES}
-    for role in ROLES:
+    for role in GLOBAL_ROLES:
         path = os.path.join(CORPORA_DIR, role)
         if not os.path.isdir(path):
             continue
         for filename in sorted(os.listdir(path)):
             if filename.endswith(".md"):
                 with open(os.path.join(path, filename)) as f:
-                    loaded[role].append({"filename": filename, "content": f.read()})
+                    # No "display": global assets fall through to the
+                    # project's display_names, then to the filename.
+                    loaded[role].append({
+                        "filename": filename,
+                        "content": f.read(),
+                    })
+    if project is not None:
+        loaded["corpus"] = reference.load_assets(project)
     return loaded
 
 
@@ -213,33 +236,65 @@ def build_system_blocks(corpora, project_state=None, query_id=None):
             })
     if project_state is not None and query_id is not None:
         project_xml = state.project_context_xml(project_state)
-        context_block = (
-            "=== PROJECT STATE (server-managed; treat as authoritative) ===\n\n"
-            "Project context for this query is COMPLETE. Treat the following as the "
-            "established project_context record. Do not produce an INTAKE response. "
-            "Do not produce a CHALLENGE response on intake grounds. Proceed directly "
-            "to evaluating the submitted theme.\n\n"
-            f"{project_xml}\n\n"
+        query_id_rule = (
             f"The query_id for this query is {query_id}. Use this exact value in your "
             "<query_id> attribute — do not invent or alter it."
         )
+
+        if state.context_is_complete(project_state):
+            context_block = (
+                "=== PROJECT STATE (server-managed; treat as authoritative) ===\n\n"
+                "Project context for this query is COMPLETE. Treat the following as the "
+                "established project_context record. Do not produce an INTAKE response. "
+                "Do not produce a CHALLENGE response on intake grounds. Proceed directly "
+                "to evaluating the submitted theme.\n\n"
+                f"{project_xml}\n\n"
+                f"{query_id_rule}"
+            )
+        else:
+            # The intake protocol in A-004 and the INTAKE response type in the
+            # schema have existed from the start; the block above was
+            # unconditional, so they were unreachable. A project created from
+            # the short form arrives here INCOMPLETE and the copilot collects
+            # the rest conversationally.
+            missing = ", ".join(state.missing_context_fields(project_state)) or "none"
+            context_block = (
+                "=== PROJECT STATE (server-managed; treat as authoritative) ===\n\n"
+                "Project context for this project is INCOMPLETE. The fields below were "
+                "captured when the project was created and are established; do not ask "
+                "for them again.\n\n"
+                f"Required fields still missing: {missing}.\n\n"
+                "Run the INTAKE PROTOCOL (Step 0). Produce an INTAKE response asking "
+                "for the missing fields. Do not evaluate the submitted theme while "
+                "context is incomplete — if the researcher has submitted a theme, "
+                "acknowledge it and collect the missing context first.\n\n"
+                "When the researcher's answers complete the record, return the FULL "
+                "<project_context> element with every field populated and "
+                "<context_completeness>COMPLETE</context_completeness>. The server "
+                "persists that element verbatim, so anything you omit is lost.\n\n"
+                f"{project_xml}\n\n"
+                f"{query_id_rule}"
+            )
         blocks.append({"type": "text", "text": context_block})
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     return blocks
 
 
 def summarise_corpora(corpora, project_state=None):
+    """What the knowledge-base panel lists. Names come from the registry."""
     display_names = (project_state or {}).get("display_names") or {}
     groups = []
     for role in ROLES:
-        items = corpora[role]
+        items = corpora.get(role) or []
         if not items:
             continue
         groups.append({
             "label": ROLE_LABELS[role],
             "items": [
                 {
-                    "name": display_names.get(item["filename"], item["filename"]),
+                    "name": item.get("display")
+                            or display_names.get(item["filename"], item["filename"]),
+                    "asset_id": item.get("asset_id"),
                     "chars": len(item["content"]),
                 }
                 for item in items
@@ -271,19 +326,160 @@ def parse_response(text):
         return None, str(e)
 
 
+PROJECT_TYPE_LABELS = [
+    ("EXISTING_PRODUCT_ITERATION", "Existing product — iteration"),
+    ("EXISTING_PRODUCT_REDESIGN", "Existing product — redesign"),
+    ("NEW_PRODUCT", "New product"),
+    ("UNKNOWN", "Not sure yet"),
+]
+
+
+def require_project(project_id):
+    """Load a project or 404. Ids come from the URL, so they are untrusted."""
+    project = state.load_project(project_id)
+    if project is None:
+        abort(404)
+    return project
+
+
+def landing_projects():
+    """Index entries decorated with the counts the landing screen shows."""
+    rows = []
+    for entry in state.list_projects():
+        pid = entry["project_id"]
+        rows.append({
+            **entry,
+            "reference_count": len(list(resources.reference_dir(pid).glob("*.md"))),
+            "history_count": history.count(pid),
+        })
+    return rows
+
+
 @app.route("/", methods=["GET"])
 def home():
-    corpora = load_corpora()
-    project_state = state.load_state()
+    return render_template(
+        "landing.html",
+        projects=landing_projects(),
+        project_types=PROJECT_TYPE_LABELS,
+        form={},
+        error=None,
+    )
+
+
+@app.route("/projects", methods=["POST"])
+def create_project():
+    try:
+        project = state.create_project(
+            request.form.get("project_name"),
+            request.form.get("project_type"),
+            request.form.get("research_objective"),
+        )
+    except ValueError as e:
+        return render_template(
+            "landing.html",
+            projects=landing_projects(),
+            project_types=PROJECT_TYPE_LABELS,
+            form=request.form,
+            error=str(e),
+        ), 400
+    return redirect(url_for("workspace", project_id=project["project_id"]))
+
+
+@app.route("/projects/<project_id>", methods=["GET"])
+def workspace(project_id):
+    project_state = require_project(project_id)
+    state.touch_project(project_id)
+    corpora = load_corpora(project_state)
     return render_template(
         "index.html",
         loaded_files=summarise_corpora(corpora, project_state),
         project_state=project_state,
+        source_types=reference.SOURCE_TYPES,
+        reference_error=request.args.get("reference_error"),
+        history_count=history.count(project_id),
     )
 
 
-@app.route("/ask", methods=["POST"])
-def ask():
+@app.route("/projects/<project_id>/history", methods=["GET"])
+def project_history(project_id):
+    project = require_project(project_id)
+    return render_template(
+        "history.html",
+        project_state=project,
+        records=history.list_records(project_id),
+    )
+
+
+@app.route("/projects/<project_id>/history/<query_id>", methods=["GET"])
+def history_detail(project_id, query_id):
+    project = require_project(project_id)
+    root, entry = history.document(project_id, query_id)
+    if entry is None:
+        abort(404)
+    # Rendered through the same right_pane.html the live flow uses, so a past
+    # verdict cannot drift from how it originally appeared.
+    qa_review = root.find("qa_review") if root is not None else None
+    required_action, blocking, degraded = qa_gate_reason(
+        qa_review, entry.get("qa_status"))
+    return render_template(
+        "history_detail.html",
+        project_state=project,
+        entry=entry,
+        root=root,
+        response_type=entry.get("response_type"),
+        qa_checks=extract_qa_checks(qa_review),
+        qa_degraded=degraded,
+        required_action=required_action,
+        blocking=blocking,
+        replay_qa_status=entry.get("qa_status"),
+        replay_gate=(entry.get("qa_status") == "QA_FAILED"),
+    )
+
+
+@app.route("/projects/<project_id>/reference", methods=["POST"])
+def add_reference(project_id):
+    """Paste text or upload text files. Both land in the same ingest path."""
+    project = require_project(project_id)
+    title = request.form.get("title") or ""
+    source_type = request.form.get("source_type") or ""
+    pasted = request.form.get("pasted_text") or ""
+    uploads = [f for f in request.files.getlist("files") if f and f.filename]
+
+    added, errors = [], []
+    try:
+        if pasted.strip():
+            added.append(reference.ingest(project, title, source_type, pasted))
+        for storage in uploads:
+            filename, text = reference.read_upload(storage)
+            # One title for one paste; uploads are named by their own filename
+            # so a multi-file add does not collapse into one ambiguous title.
+            label = title.strip() if (title.strip() and len(uploads) == 1 and not pasted.strip()) \
+                else filename.rsplit(".", 1)[0]
+            added.append(reference.ingest(project, label, source_type, text))
+        if not added and not errors:
+            errors.append("Paste some text or choose a file to add.")
+    except reference.IngestError as e:
+        errors.append(str(e))
+
+    if added:
+        state.save_project(project)
+
+    target = url_for("workspace", project_id=project_id)
+    if errors:
+        return redirect(f"{target}?reference_error={quote(errors[0])}")
+    return redirect(target)
+
+
+@app.route("/projects/<project_id>/reference/<asset_id>/delete", methods=["POST"])
+def delete_reference(project_id, asset_id):
+    project = require_project(project_id)
+    if reference.remove(project, asset_id) is not None:
+        state.save_project(project)
+    return redirect(url_for("workspace", project_id=project_id))
+
+
+@app.route("/projects/<project_id>/ask", methods=["POST"])
+def ask(project_id):
     """Phase 1 of the two-agent flow, streamed.
 
     Runs Agent 1 and emits Server-Sent Events as sections of the response
@@ -295,8 +491,8 @@ def ask():
     if not question:
         return jsonify({"error": "empty question"}), 400
 
-    corpora = load_corpora()
-    project_state = state.load_state()
+    project_state = require_project(project_id)
+    corpora = load_corpora(project_state)
     query_id = state.generate_query_id(project_state)
     system_blocks = build_system_blocks(corpora, project_state, query_id)
 
@@ -435,7 +631,17 @@ def ask():
             return
 
         response_type = root.findtext("attributes/response_type")
-        state.save_state(project_state)
+
+        # An INTAKE response carries the project_context the copilot has
+        # assembled. Persist it: that is what moves a project from the three
+        # fields the form captured to COMPLETE, after which the block above
+        # stops asking and synthesis proceeds.
+        incoming_context = root.find("project_context")
+        if incoming_context is not None:
+            fields = {child.tag: (child.text or "") for child in incoming_context}
+            state.apply_context(project_state, fields)
+
+        state.save_project(project_state)
 
         # qa_review is intentionally NOT present on root yet — right_pane.html
         # renders the pending QA band, which the client resolves once /qa lands.
@@ -467,8 +673,8 @@ def ask():
     )
 
 
-@app.route("/qa", methods=["POST"])
-def qa():
+@app.route("/projects/<project_id>/qa", methods=["POST"])
+def qa(project_id):
     """Phase 2 of the two-agent flow, streamed.
 
     Receives Agent 1's full XML, runs Agent 2 against it, and emits one event
@@ -476,8 +682,11 @@ def qa():
     after ~47s of blank screen. The final frame carries the rendered surface and
     the fragment that invalidates Agent 1's verdict when the gate fails.
     """
+    require_project(project_id)
     data = request.get_json(silent=True) or {}
     agent1_xml = (data.get("agent1_xml") or "").strip()
+    query_id = (data.get("query_id") or "").strip()
+    theme = data.get("theme") or ""
     if not agent1_xml:
         return jsonify({"error": "missing agent1_xml"}), 400
 
@@ -533,6 +742,12 @@ def qa():
                 blocking=blocking,
                 degraded=degraded,
             )
+
+        # Record against the project once the document is complete — that is,
+        # after the QA gate has stamped it. Recorded whatever the verdict, so a
+        # blocked one is visible in the history rather than quietly missing;
+        # the stored qa_status says which it was.
+        history.record(project_id, query_id, theme, root)
 
         yield sse("done", {
             "qa_html": qa_html,
