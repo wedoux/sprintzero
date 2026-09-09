@@ -36,6 +36,7 @@ REQUIRED = [
     "templates/index.html",
     "templates/landing.html",
     "templates/partials/styles.html",
+    "templates/partials/reference_panel.html",
     "templates/partials/right_pane.html",
     "templates/partials/qa_surface.html",
     "templates/partials/verdict_invalidation.html",

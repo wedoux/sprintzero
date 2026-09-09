@@ -215,6 +215,29 @@ if "<project_context>" not in xml or "</project_context>" not in xml:
 print(f"4. context   : complete={state.context_is_complete(reloaded)} "
       f"xml_fields={xml.count('<') // 2 - 1}")
 
+# --- 6. A brand-new project must actually open -------------------------------
+# The workspace once hard-coded the founding project's filenames into its
+# activity log, so every newly created project 500'd on render. Only a fresh
+# project catches that; the migrated one carries the keys that hid it.
+import app  # noqa: E402 - imported late so the probe can run state-only checks first
+
+http = app.app.test_client()
+fresh = state.create_project("Render Probe", "NEW_PRODUCT", "Whether the page renders.")
+CREATED.append(fresh["project_id"])
+
+response = http.get(f"/projects/{fresh['project_id']}")
+if response.status_code != 200:
+    violations.append(
+        f"NEW PROJECT WORKSPACE: rendering a project with no reference data and "
+        f"no display names returned {response.status_code}. A newly created "
+        "project would be unusable."
+    )
+if http.get("/").status_code != 200:
+    violations.append("LANDING: the project list failed to render.")
+if http.get("/projects/definitely-not-real").status_code != 404:
+    violations.append("ROUTING: an unknown project id did not 404.")
+print(f"5. rendering : new project workspace {response.status_code}, landing 200")
+
 cleanup()
 
 print("\n===== PROJECT STORAGE ASSERTIONS =====")

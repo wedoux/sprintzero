@@ -8,11 +8,14 @@ import anthropic
 from dotenv import load_dotenv
 
 import credentials
+from urllib.parse import quote
+
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
                    request, stream_with_context, url_for)
 
 import instrumentation
 import model_client
+import reference
 import resources
 import state
 from agents import agent2_qa
@@ -188,16 +191,34 @@ SPRINTZERO_RESPONSE_RE = re.compile(
 )
 
 
-def load_corpora():
+# Which roles ship with the app rather than belonging to a project. The
+# framework (A-001) is a system asset - Agent 2 hard-requires it at import -
+# and context holds domain knowledge shared across projects. Corpus is the
+# researcher's own evidence and comes from the project, never from here.
+GLOBAL_ROLES = ("framework", "context")
+
+
+def load_corpora(project=None):
+    """Framework and context ship with the app; corpus belongs to the project.
+
+    Called with no project only by tooling that needs the global assets.
+    """
     loaded = {role: [] for role in ROLES}
-    for role in ROLES:
+    for role in GLOBAL_ROLES:
         path = os.path.join(CORPORA_DIR, role)
         if not os.path.isdir(path):
             continue
         for filename in sorted(os.listdir(path)):
             if filename.endswith(".md"):
                 with open(os.path.join(path, filename)) as f:
-                    loaded[role].append({"filename": filename, "content": f.read()})
+                    # No "display": global assets fall through to the
+                    # project's display_names, then to the filename.
+                    loaded[role].append({
+                        "filename": filename,
+                        "content": f.read(),
+                    })
+    if project is not None:
+        loaded["corpus"] = reference.load_assets(project)
     return loaded
 
 
@@ -259,17 +280,20 @@ def build_system_blocks(corpora, project_state=None, query_id=None):
 
 
 def summarise_corpora(corpora, project_state=None):
+    """What the knowledge-base panel lists. Names come from the registry."""
     display_names = (project_state or {}).get("display_names") or {}
     groups = []
     for role in ROLES:
-        items = corpora[role]
+        items = corpora.get(role) or []
         if not items:
             continue
         groups.append({
             "label": ROLE_LABELS[role],
             "items": [
                 {
-                    "name": display_names.get(item["filename"], item["filename"]),
+                    "name": item.get("display")
+                            or display_names.get(item["filename"], item["filename"]),
+                    "asset_id": item.get("asset_id"),
                     "chars": len(item["content"]),
                 }
                 for item in items
@@ -364,12 +388,56 @@ def create_project():
 def workspace(project_id):
     project_state = require_project(project_id)
     state.touch_project(project_id)
-    corpora = load_corpora()
+    corpora = load_corpora(project_state)
     return render_template(
         "index.html",
         loaded_files=summarise_corpora(corpora, project_state),
         project_state=project_state,
+        source_types=reference.SOURCE_TYPES,
+        reference_error=request.args.get("reference_error"),
     )
+
+
+@app.route("/projects/<project_id>/reference", methods=["POST"])
+def add_reference(project_id):
+    """Paste text or upload text files. Both land in the same ingest path."""
+    project = require_project(project_id)
+    title = request.form.get("title") or ""
+    source_type = request.form.get("source_type") or ""
+    pasted = request.form.get("pasted_text") or ""
+    uploads = [f for f in request.files.getlist("files") if f and f.filename]
+
+    added, errors = [], []
+    try:
+        if pasted.strip():
+            added.append(reference.ingest(project, title, source_type, pasted))
+        for storage in uploads:
+            filename, text = reference.read_upload(storage)
+            # One title for one paste; uploads are named by their own filename
+            # so a multi-file add does not collapse into one ambiguous title.
+            label = title.strip() if (title.strip() and len(uploads) == 1 and not pasted.strip()) \
+                else filename.rsplit(".", 1)[0]
+            added.append(reference.ingest(project, label, source_type, text))
+        if not added and not errors:
+            errors.append("Paste some text or choose a file to add.")
+    except reference.IngestError as e:
+        errors.append(str(e))
+
+    if added:
+        state.save_project(project)
+
+    target = url_for("workspace", project_id=project_id)
+    if errors:
+        return redirect(f"{target}?reference_error={quote(errors[0])}")
+    return redirect(target)
+
+
+@app.route("/projects/<project_id>/reference/<asset_id>/delete", methods=["POST"])
+def delete_reference(project_id, asset_id):
+    project = require_project(project_id)
+    if reference.remove(project, asset_id) is not None:
+        state.save_project(project)
+    return redirect(url_for("workspace", project_id=project_id))
 
 
 @app.route("/projects/<project_id>/ask", methods=["POST"])
@@ -386,7 +454,7 @@ def ask(project_id):
         return jsonify({"error": "empty question"}), 400
 
     project_state = require_project(project_id)
-    corpora = load_corpora()
+    corpora = load_corpora(project_state)
     query_id = state.generate_query_id(project_state)
     system_blocks = build_system_blocks(corpora, project_state, query_id)
 

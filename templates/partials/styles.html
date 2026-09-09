@@ -209,6 +209,83 @@
         }
         .kb-list strong { color: var(--navy-700); font-weight: 600; }
 
+        /* ---------- Reference data management ---------- */
+        .ref-total {
+            margin-top: 9px; padding-top: 9px;
+            border-top: 1px solid var(--line-100);
+            font-size: 11.5px; color: var(--ink-500);
+        }
+        .ref-manage { margin-top: 10px; }
+        .ref-manage > summary {
+            cursor: pointer; list-style: none; user-select: none;
+            font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--navy-500);
+        }
+        .ref-manage > summary::-webkit-details-marker { display: none; }
+        .ref-manage > summary::before { content: "▸ "; }
+        .ref-manage[open] > summary::before { content: "▾ "; }
+        .ref-manage > summary:hover { color: var(--navy-700); }
+
+        .ref-error {
+            margin: 10px 0; padding: 9px 11px; font-size: 12.5px; line-height: 1.5;
+            background: var(--qa-fail-bg-a); border: 1px solid var(--qa-fail-rule);
+            border-radius: var(--radius-sm); color: var(--qa-fail-ink);
+        }
+        .ref-empty {
+            margin: 10px 0; font-size: 12.5px; color: var(--ink-500); line-height: 1.5;
+        }
+        .ref-list { list-style: none; margin: 10px 0 0 0; padding: 0; }
+        .ref-item {
+            padding: 9px 0; border-bottom: 1px solid var(--line-100);
+            display: grid; grid-template-columns: 1fr auto;
+            grid-template-areas: "main action" "meta action";
+            align-items: center; gap: 0 10px;
+        }
+        .ref-item:last-child { border-bottom: 0; }
+        .ref-item-main { grid-area: main; display: flex; align-items: baseline; gap: 7px; }
+        .ref-item-meta { grid-area: meta; font-size: 11px; color: var(--ink-400); margin-top: 2px; }
+        .ref-item form { grid-area: action; }
+        .ref-id {
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 10.5px; font-weight: 700; color: var(--navy-500);
+            background: var(--navy-100); padding: 1px 5px; border-radius: 3px;
+        }
+        .ref-title { font-size: 12.5px; font-weight: 600; color: var(--ink-800); }
+        .ref-remove {
+            font-family: inherit; font-size: 10.5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            padding: 4px 9px; cursor: pointer;
+            background: white; color: var(--ink-500);
+            border: 1px solid var(--line-200); border-radius: var(--radius-sm);
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .ref-remove:hover { color: var(--qa-fail-ink); border-color: var(--qa-fail-rule); }
+
+        .ref-add { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-200); }
+        .ref-field { margin-bottom: 10px; }
+        .ref-field label {
+            display: block; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            color: var(--ink-500); margin-bottom: 4px;
+        }
+        .ref-field input[type="text"], .ref-field textarea, .ref-field select {
+            width: 100%; font-family: inherit; font-size: 12.5px; color: var(--ink-900);
+            padding: 7px 9px; background: white;
+            border: 1px solid var(--line-200); border-radius: var(--radius-sm);
+        }
+        .ref-field textarea { resize: vertical; line-height: 1.5; }
+        .ref-field input:focus, .ref-field textarea:focus, .ref-field select:focus {
+            outline: none; border-color: var(--navy-300);
+        }
+        .ref-field input[type="file"] { font-size: 11.5px; color: var(--ink-600); }
+        .ref-help { font-size: 11px; color: var(--ink-400); margin-top: 4px; }
+        .ref-submit {
+            font-family: inherit; font-size: 12px; font-weight: 700;
+            padding: 8px 14px; border: 0; border-radius: var(--radius-sm);
+            background: var(--navy-700); color: white; cursor: pointer;
+        }
+        .ref-submit:hover { background: var(--navy-900); }
+
         /* Chat trail */
         .chat-trail { flex: 1; overflow-y: auto; padding: 18px 18px 8px 18px; }
         .chat-trail-initial {

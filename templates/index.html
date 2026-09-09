@@ -41,25 +41,7 @@
             </div>
         </header>
 
-        {% if loaded_files %}
-        <div class="kb-card">
-            <div class="kb-label">Knowledge base</div>
-            <ul class="kb-list">
-                {% for group in loaded_files %}
-                <li>
-                    <div>
-                    <strong>{{ group.label }}:</strong>
-                    {% if group['items']|length == 1 %}
-                        {{ group['items'][0].name }}
-                    {% else %}
-                        {{ group['items'] | map(attribute='name') | join(', ') }}
-                    {% endif %}
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
+        {% include 'partials/reference_panel.html' %}
 
         <div class="chat-trail" id="chat-trail">
             <div class="chat-trail-initial" id="chat-trail-initial">
@@ -132,9 +114,16 @@
 // entry shows "Thinking… (Xs)" with a live counter until the fetch resolves.
 // Instant, deterministic local work — these are real and complete before the
 // first token arrives, so they are not paced.
+// Derived from what this project actually has loaded, not from hard-coded
+// filenames. The previous version named the founding project's two files
+// directly, which meant any project without them failed to render at all.
 const PHASE1_OPENING = [
-    { text: "Loading framework ({{ project_state.display_names.get('evaluation.md', 'evaluation.md') }})…", cls: "" },
-    { text: "Loading reference data ({{ project_state.display_names.get('weather_underground.md', 'weather_underground.md') }})…", cls: "" },
+{%- for group in loaded_files %}
+    { text: {{ ("Loading " ~ group.label|lower ~ " (" ~ group['items']|map(attribute='name')|join(', ') ~ ")…") | tojson }}, cls: "" },
+{%- endfor %}
+{%- if not loaded_files %}
+    { text: "No reference data loaded for this project", cls: "handoff" },
+{%- endif %}
 ];
 const PHASE1_GATED = [
     { text: "Agent 1 verdict ready", cls: "done" },
