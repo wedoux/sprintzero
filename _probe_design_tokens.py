@@ -12,12 +12,19 @@ import re
 import sys
 from pathlib import Path
 
-# The design system lives in its own partial, shared by every screen.
-INDEX = Path(__file__).parent / "templates" / "partials" / "styles.html"
-css = INDEX.read_text(encoding="utf-8")
+# The design system lives in its own partial, shared by every screen - but
+# landing.html carries a second <style> block of its own, and that is where a
+# QA-green "READY" pill sat unnoticed. Reading one file was how the probe
+# missed it, so it reads every template now.
+TEMPLATES = Path(__file__).parent / "templates"
+STYLE_SOURCES = sorted(TEMPLATES.rglob("*.html"))
+css = "\n".join(f.read_text(encoding="utf-8") for f in STYLE_SOURCES)
 
 # Semantic colour that must never touch the evidence-strength axis.
-SEMANTIC_TOKENS = ("--green-", "--red-", "--amber-")
+# --qa-pass-/--qa-fail- are here too: borrowing the gate's own tokens for
+# something that is not the gate is the same leak as borrowing raw green,
+# and it is how a "READY" project pill on the landing screen went unnoticed.
+SEMANTIC_TOKENS = ("--green-", "--red-", "--amber-", "--qa-pass-", "--qa-fail-")
 SEMANTIC_HEX = re.compile(
     r"#(?:F0F7F2|E5F2EA|FEF2F2|FCDFDF|FFFAEB|FFEFC9|1E7A47|276B47|A01F1F|B04040|8B5A00|B07800)",
     re.IGNORECASE,
@@ -78,6 +85,69 @@ for c in STRENGTH_CLASSES:
 if len(set(fills.values())) != len(STRENGTH_CLASSES):
     violations.append(
         f"RAMP VIOLATION: strength levels must be visually distinct, got {fills}."
+    )
+
+# --- Assertion 5: semantic colour only where it is earned ----------------
+# Assertion 1 guards three selectors. The other ~1000 lines were unguarded,
+# and green had leaked into four of them: the knowledge-base panel, its
+# bullets, the activity trail's done marker and the options message. Ambient
+# "this is fine" green is precisely what stops a QA pass badge meaning
+# anything, so the rule needs to hold across the whole stylesheet, not just
+# where someone remembered to look.
+#
+# Allowed, and why:
+#   .qa-, .check-pill-   AXIS 2. The gate. This is the axis that earns colour.
+#   .sys-msg-challenge   AXIS 3 advisory chrome, on the --attention-* ramp.
+#   .sys-msg-required    AXIS 3 advisory chrome.
+#   .error, .parse-fail  Errors. Not an axis - "this broke" reads as red to
+#   .sys-msg-error       everyone, and no grammar should relabel it.
+SEMANTIC_OK_PREFIXES = (
+    ".qa-", ".check-pill-",                 # AXIS 2. The gate itself.
+    ".verdict-gate",                        # AXIS 2. The gate, on the banner.
+    ".verdict-banner.qa-invalidated",       # AXIS 2. QA overruled the verdict.
+                                            # Bare .verdict-banner.STRONG is
+                                            # still caught by Assertion 1.
+    ".hist-qa",                             # AXIS 2. QA status in history.
+    ".sys-msg-challenge", ".sys-msg-required",   # AXIS 3 advisory chrome.
+    ".sys-msg-error", ".parse-fail", ".error",   # Errors. Not an axis.
+    ".create-error", ".ref-error",               # Errors, on the two forms.
+    ".ref-remove:hover",                    # Destructive action turning red
+                                            # on hover is an affordance, not
+                                            # a verdict about anything.
+)
+ADVISORY_HEX = re.compile(r"#(?:FCE7E7)", re.IGNORECASE)
+
+selector = "(unknown)"
+in_root = False
+in_style = False
+for line in css.splitlines():
+    if "<style" in line:
+        in_style = True
+    elif "</style>" in line:
+        in_style = False
+    if not in_style:
+        continue
+    stripped = line.strip()
+    if stripped.startswith(":root"):
+        in_root = True
+    if in_root:
+        if stripped.startswith("}"):
+            in_root = False
+        continue                      # :root is where these tokens live
+    if stripped.endswith("{"):
+        selector = stripped[:-1].strip()
+    elif "{" in stripped and "}" in stripped:
+        selector = stripped.split("{")[0].strip()
+    if not (any(t in stripped for t in SEMANTIC_TOKENS)
+            or SEMANTIC_HEX.search(stripped) or ADVISORY_HEX.search(stripped)):
+        continue
+    if selector.startswith(SEMANTIC_OK_PREFIXES):
+        continue
+    violations.append(
+        f"AXIS VIOLATION: {selector!r} uses semantic colour outside the QA gate.\n"
+        f"    {stripped}\n"
+        "    Green and red belong to AXIS 2. Reference material, completed\n"
+        "    steps and offered options are context chrome - use --context-*."
     )
 
 print("===== DESIGN TOKEN AXIS ASSERTIONS =====")

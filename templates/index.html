@@ -79,21 +79,33 @@
     <!-- ============== RIGHT (OUTPUT) PANE ============== -->
     <main class="right-pane" id="right-pane">
         <div class="empty-pane">
-            <div class="empty-pane-logo">
-                <svg width="56" height="56" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <defs>
-                        <linearGradient id="s0Grad-empty" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0%" stop-color="#60A5FA"/>
-                            <stop offset="60%" stop-color="#3B82F6"/>
-                            <stop offset="100%" stop-color="#1E3A8A"/>
-                        </linearGradient>
-                    </defs>
-                    <rect width="32" height="32" rx="8" fill="url(#s0Grad-empty)"/>
-                    <text x="16" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="800" text-anchor="middle" fill="white" letter-spacing="-0.5">S0</text>
-                </svg>
-            </div>
-            <div class="empty-pane-text">No analysis yet</div>
-            <div class="empty-pane-sub">Submit a theme on the left to see the verdict, evidence, and independent QA review appear here.</div>
+            <p class="empty-kicker">Nothing evaluated yet</p>
+            <h2 class="empty-title">Every theme comes back as a verdict you can argue with</h2>
+            <p class="empty-lede">Submit a theme on the left. The copilot reads it against your
+                reference data and proposes a verdict. A second agent then tries to break that
+                verdict before it reaches you — so you get both halves, not just the answer.</p>
+            <ol class="empty-spine" aria-hidden="true">
+                <li class="empty-spine-row is-lead">
+                    <span class="empty-spine-name">Decision + QA gate</span>
+                    <span class="empty-spine-note">what survived, and whether it is committable</span>
+                </li>
+                <li class="empty-spine-row">
+                    <span class="empty-spine-name">Reasoning</span>
+                    <span class="empty-spine-note">proposed · counter · committed</span>
+                </li>
+                <li class="empty-spine-row">
+                    <span class="empty-spine-name">Evidence chain</span>
+                    <span class="empty-spine-note">corroborating and counter-signal units</span>
+                </li>
+                <li class="empty-spine-row">
+                    <span class="empty-spine-name">Falsification attempt</span>
+                    <span class="empty-spine-note">the strongest case against</span>
+                </li>
+                <li class="empty-spine-row">
+                    <span class="empty-spine-name">Gap flags</span>
+                    <span class="empty-spine-note">what the reference data cannot answer</span>
+                </li>
+            </ol>
         </div>
     </main>
 

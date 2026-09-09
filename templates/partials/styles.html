@@ -7,14 +7,24 @@
         * { box-sizing: border-box; }
         html, body { height: 100%; margin: 0; padding: 0; }
         body {
+            /* Deliberately the system face rather than a webfont. This ships as
+               a packaged .app that has to render with no network, and SF Pro
+               switches to its Display optical size above 20px on its own -
+               which is most of what a bought display face would have bought. */
             font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
             color: #1A2332;
             line-height: 1.5;
             background: #F7F9FC;
             font-feature-settings: "cv11", "ss01", "ss03";
+            font-optical-sizing: auto;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
+        /* Counts, character totals, confidence values. Proportional digits make
+           a column of numbers wobble; these are read as data, so they get the
+           tabular set. */
+        .kb-card .ref-total, .confidence-value, .qa-band-value,
+        .card-summary, .project-meta, .empty-spine-note { font-variant-numeric: tabular-nums; }
         code { background: #F0F3F8; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
         :root {
@@ -59,6 +69,19 @@
                AXIS 3 is not a status axis: --attention-* is advisory chrome
                for gap flags, which are neither an evidence measurement nor a
                QA decision.
+
+               ERRORS are a fourth concern, not an axis. --red-* on .error,
+               .parse-fail and .sys-msg-error means "this broke", which every
+               user already reads correctly and which no amount of grammar
+               should relabel. Left alone deliberately.
+
+               CONTEXT CHROME (--context-*) is what reference material and
+               completed steps get. It exists because green had leaked into
+               the knowledge-base panel, the activity trail and the options
+               message: ambient "this is fine" green, which is exactly what
+               stops the QA pass badge meaning anything. Cool slate, never
+               semantic. Assertion 5 in _probe_design_tokens.py now guards
+               the whole stylesheet rather than three selectors.
                ============================================================ */
 
             /* AXIS 1 - Evidence strength. NEUTRAL. Never semantic. */
@@ -93,6 +116,14 @@
             --qa-note-soft: #FFEFC9;
             --qa-note-ink: #8B5A00;
 
+            /* Context chrome - reference material, completed steps, offered
+               options. Carries no verdict; must never borrow the QA green. */
+            --context-bg-a: #F5F8FC;
+            --context-bg-b: #EDF2F9;
+            --context-line: #DFE7F1;
+            --context-ink: #2F5480;
+            --context-mark: #8FA6C4;
+
             /* Advisory chrome - gap flags. Neither status axis. */
             --attention-bg-a: #FFFAEB;
             --attention-bg-b: #FFF5D9;
@@ -123,8 +154,19 @@
             --radius-full: 999px;
         }
 
+        /* Ambient grain. A flat #F7F9FC field over a 1000px-tall pane reads as
+           unfinished; this is one 120px SVG tile at 3% opacity, fixed and
+           inert, which is enough to stop the surface looking like paper white
+           and cheap enough to inline. */
+        .right-pane::before {
+            content: ""; position: fixed; inset: 0; pointer-events: none;
+            z-index: 0; opacity: 0.035;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .right-pane > * { position: relative; z-index: 1; }
+
         /* ==================== LAYOUT ==================== */
-        .layout { display: flex; height: 100vh; overflow: hidden; }
+        .layout { display: flex; height: 100dvh; overflow: hidden; }
 
         /* ==================== LEFT (CHAT) PANE ==================== */
         .chat-pane {
@@ -188,13 +230,17 @@
         /* Knowledge base card */
         .kb-card {
             padding: 12px 18px;
-            background: linear-gradient(180deg, #F4FAF6 0%, #EAF5EE 100%);
+            background: linear-gradient(180deg, var(--context-bg-a) 0%, var(--context-bg-b) 100%);
             border-bottom: 1px solid var(--line-200);
             flex-shrink: 0;
         }
+        /* Was 10px/700 uppercase. Seven shouted labels on one screen is a
+           texture, not a hierarchy - this one carries its weight through
+           size and colour instead, and the caps budget goes to status chips
+           where the shout is the point. */
         .kb-label {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
-            font-weight: 700; color: var(--green-500); margin-bottom: 6px;
+            font-size: 11.5px; letter-spacing: -0.005em;
+            font-weight: 600; color: var(--context-ink); margin-bottom: 7px;
         }
         .kb-list { margin: 0; padding: 0; list-style: none; font-size: 13px; }
         .kb-list li {
@@ -204,7 +250,7 @@
         .kb-list li::before {
             content: ""; display: inline-block;
             width: 5px; height: 5px; border-radius: 50%;
-            background: var(--green-500);
+            background: var(--context-mark);
             flex-shrink: 0; transform: translateY(-2px);
         }
         .kb-list strong { color: var(--navy-700); font-weight: 600; }
@@ -224,8 +270,14 @@
         .ref-manage { margin-top: 10px; }
         .ref-manage > summary {
             cursor: pointer; list-style: none; user-select: none;
-            font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
-            text-transform: uppercase; color: var(--navy-500);
+            font-size: 12px; font-weight: 600; letter-spacing: -0.005em;
+            color: var(--navy-500);
+            border-radius: var(--radius-sm);
+            transition: color 0.16s ease;
+        }
+        .ref-manage > summary:hover { color: var(--navy-700); }
+        .ref-manage > summary:focus-visible {
+            outline: 2px solid var(--navy-300); outline-offset: 3px;
         }
         .ref-manage > summary::-webkit-details-marker { display: none; }
         .ref-manage > summary::before { content: "▸ "; }
@@ -293,11 +345,17 @@
         .ref-submit:hover { background: var(--navy-900); }
 
         /* Chat trail */
-        .chat-trail { flex: 1; overflow-y: auto; padding: 18px 18px 8px 18px; }
+        .chat-trail {
+            flex: 1; overflow-y: auto; padding: 18px 18px 8px 18px;
+            display: flex; flex-direction: column;
+        }
+        /* Sits in the middle of the empty column rather than stranded at the
+           top with a screen of dead space above the composer. Once real
+           messages arrive it is removed and the column packs from the top. */
         .chat-trail-initial {
             color: var(--ink-400); font-size: 13px;
-            text-align: center; margin-top: 32px; padding: 0 20px;
-            line-height: 1.6;
+            text-align: center; margin: auto 0; padding: 0 24px;
+            line-height: 1.65; text-wrap: pretty;
         }
 
         .chat-turn { margin-bottom: 22px; }
@@ -367,7 +425,7 @@
             z-index: 0;
         }
         .activity-entry:last-child::after { display: none; }
-        .activity-entry.done::before { background: var(--green-500); }
+        .activity-entry.done::before { background: var(--navy-500); }
         .activity-entry.handoff::before { background: var(--violet-500); }
         .activity-entry.final::before { background: var(--navy-700); }
         @keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
@@ -385,12 +443,12 @@
         }
         .sys-msg-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-500); margin-bottom: 4px; font-weight: 700; }
         .sys-msg-body { color: var(--ink-800); white-space: pre-wrap; line-height: 1.5; }
-        .sys-msg-challenge { border-left-color: var(--amber-500); background: #FFFAEB; }
-        .sys-msg-challenge .sys-msg-label { color: var(--amber-700); }
-        .sys-msg-required { border-left-color: var(--amber-500); }
-        .sys-msg-required .sys-msg-label { color: var(--amber-700); }
-        .sys-msg-options { border-left-color: var(--green-500); }
-        .sys-msg-options .sys-msg-label { color: var(--green-500); }
+        .sys-msg-challenge { border-left-color: var(--attention-ink-soft); background: var(--attention-bg-a); }
+        .sys-msg-challenge .sys-msg-label { color: var(--attention-ink); }
+        .sys-msg-required { border-left-color: var(--attention-ink-soft); }
+        .sys-msg-required .sys-msg-label { color: var(--attention-ink); }
+        .sys-msg-options { border-left-color: var(--context-ink); background: var(--context-bg-a); }
+        .sys-msg-options .sys-msg-label { color: var(--context-ink); }
         .sys-msg-tacit { border-left-color: var(--violet-500); background: #F8F4FF; }
         .sys-msg-tacit .sys-msg-label { color: var(--violet-700); }
         .sys-msg-error { border-left-color: var(--red-500); background: #FEF2F2; }
@@ -401,7 +459,7 @@
             background: none; border: none;
             box-shadow: none;
         }
-        .sys-msg-done-arrow { color: var(--green-500); font-weight: 700; margin-right: 6px; }
+        .sys-msg-done-arrow { color: var(--navy-500); font-weight: 700; margin-right: 6px; }
         .sys-msg-detail { margin-top: 8px; font-size: 12px; }
         .sys-msg-detail summary { cursor: pointer; color: var(--ink-500); user-select: none; }
         .sys-msg-detail > div { padding-top: 6px; color: var(--ink-500); }
@@ -485,15 +543,53 @@
         .send-btn:disabled { background: #B0BAC5; cursor: not-allowed; box-shadow: none; }
 
         /* ==================== RIGHT (OUTPUT) PANE ==================== */
-        .right-pane { flex: 1; overflow-y: auto; padding: 28px 36px; background: var(--bg-100); }
+        /* A reading column, not the full width of whatever monitor this is on.
+           max() keeps 36px of gutter on narrow windows and centres a 940px
+           column on wide ones, without needing a wrapper element. */
+        .right-pane {
+            flex: 1; overflow-y: auto; background: var(--bg-100);
+            padding: 32px max(36px, calc((100% - 940px) / 2)) 56px;
+        }
 
         /* Empty / initial states */
+        /* First-use empty is the onboarding moment, not a shrug. It shows the
+           shape of what a verdict contains, because the two-agent model is
+           the part of this product nobody guesses from a blank pane. */
         .empty-pane {
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            height: 80%; color: var(--ink-400);
-            text-align: center; padding: 40px;
+            max-width: 620px; padding: 28px 0 40px;
+            color: var(--ink-500);
         }
+        .empty-kicker {
+            margin: 0 0 10px; font-size: 11px; font-weight: 600;
+            letter-spacing: 0.09em; text-transform: uppercase;
+            color: var(--ink-400);
+        }
+        .empty-title {
+            margin: 0 0 12px; font-size: 26px; line-height: 1.2;
+            letter-spacing: -0.021em; font-weight: 600; color: var(--ink-900);
+            text-wrap: balance;
+        }
+        .empty-lede {
+            margin: 0 0 26px; font-size: 14.5px; line-height: 1.6;
+            color: var(--ink-600); max-width: 54ch; text-wrap: pretty;
+        }
+        .empty-spine { list-style: none; margin: 0; padding: 0; }
+        .empty-spine-row {
+            display: flex; align-items: baseline; gap: 12px;
+            padding: 11px 14px; margin-bottom: 6px;
+            border: 1px dashed var(--context-line);
+            border-radius: var(--radius-md);
+            background: var(--context-bg-a);
+        }
+        .empty-spine-row.is-lead {
+            border-style: solid;
+            background: linear-gradient(180deg, var(--context-bg-a) 0%, var(--context-bg-b) 100%);
+        }
+        .empty-spine-name {
+            font-size: 12.5px; font-weight: 600; color: var(--context-ink);
+            flex-shrink: 0; min-width: 158px;
+        }
+        .empty-spine-note { font-size: 12.5px; color: var(--ink-400); }
         .empty-pane-logo {
             margin-bottom: 18px;
             opacity: 0.5;

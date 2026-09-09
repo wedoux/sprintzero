@@ -13,8 +13,8 @@
         .landing-sub { color: var(--ink-500); font-size: 13.5px; margin-bottom: 34px; max-width: 62ch; line-height: 1.6; }
 
         .section-label {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 0.11em;
-            font-weight: 700; color: var(--ink-400); margin: 0 0 10px 2px;
+            font-size: 12px; letter-spacing: -0.005em;
+            font-weight: 600; color: var(--ink-500); margin: 0 0 11px 2px;
         }
 
         .project-grid { display: grid; gap: 10px; margin-bottom: 40px; }
@@ -41,12 +41,15 @@
             border-radius: var(--radius-full);
             background: var(--attention-bg-b); color: var(--attention-ink);
         }
+        /* Project readiness is not a QA verdict. It used the gate's green,
+           which is the same dilution the two-axis grammar exists to stop:
+           if everything settled is green, a QA pass stops registering. */
         .ready-pill {
             margin-left: auto; flex-shrink: 0;
             font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
             text-transform: uppercase; padding: 3px 9px;
             border-radius: var(--radius-full);
-            background: var(--qa-pass-soft); color: var(--qa-pass-ink);
+            background: var(--context-bg-b); color: var(--context-ink);
         }
 
         .empty-projects {
@@ -63,9 +66,9 @@
         .field-row { margin-bottom: 16px; }
         .field-row:last-of-type { margin-bottom: 20px; }
         .field-row label {
-            display: block; font-size: 11px; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.07em;
-            color: var(--ink-600); margin-bottom: 6px;
+            display: block; font-size: 12.5px; font-weight: 600;
+            letter-spacing: -0.005em;
+            color: var(--ink-800); margin-bottom: 6px;
         }
         .field-help { font-size: 12px; color: var(--ink-400); margin-top: 5px; line-height: 1.5; }
         .field-row input[type="text"], .field-row textarea, .field-row select {
