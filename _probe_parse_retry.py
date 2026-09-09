@@ -90,13 +90,17 @@ violations = []
 original = model_client.stream_text
 client_t = app.app.test_client()
 
+# Endpoints are project-scoped now.
+PROJECT = "weather-underground-redesign"
+
 
 def run_ask(responses):
     before = artefacts()
     counter = {"n": 0}
     model_client.stream_text = stub(responses, counter)
     try:
-        events = read_events(client_t.post("/ask", data={"question": "probe theme"}))
+        events = read_events(client_t.post(
+            f"/projects/{PROJECT}/ask", data={"question": "probe theme"}))
     finally:
         model_client.stream_text = original
     return events, counter["n"], artefacts() - before

@@ -8,7 +8,8 @@ import anthropic
 from dotenv import load_dotenv
 
 import credentials
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context
+from flask import (Flask, Response, abort, jsonify, redirect, render_template,
+                   request, stream_with_context, url_for)
 
 import instrumentation
 import model_client
@@ -213,16 +214,45 @@ def build_system_blocks(corpora, project_state=None, query_id=None):
             })
     if project_state is not None and query_id is not None:
         project_xml = state.project_context_xml(project_state)
-        context_block = (
-            "=== PROJECT STATE (server-managed; treat as authoritative) ===\n\n"
-            "Project context for this query is COMPLETE. Treat the following as the "
-            "established project_context record. Do not produce an INTAKE response. "
-            "Do not produce a CHALLENGE response on intake grounds. Proceed directly "
-            "to evaluating the submitted theme.\n\n"
-            f"{project_xml}\n\n"
+        query_id_rule = (
             f"The query_id for this query is {query_id}. Use this exact value in your "
             "<query_id> attribute — do not invent or alter it."
         )
+
+        if state.context_is_complete(project_state):
+            context_block = (
+                "=== PROJECT STATE (server-managed; treat as authoritative) ===\n\n"
+                "Project context for this query is COMPLETE. Treat the following as the "
+                "established project_context record. Do not produce an INTAKE response. "
+                "Do not produce a CHALLENGE response on intake grounds. Proceed directly "
+                "to evaluating the submitted theme.\n\n"
+                f"{project_xml}\n\n"
+                f"{query_id_rule}"
+            )
+        else:
+            # The intake protocol in A-004 and the INTAKE response type in the
+            # schema have existed from the start; the block above was
+            # unconditional, so they were unreachable. A project created from
+            # the short form arrives here INCOMPLETE and the copilot collects
+            # the rest conversationally.
+            missing = ", ".join(state.missing_context_fields(project_state)) or "none"
+            context_block = (
+                "=== PROJECT STATE (server-managed; treat as authoritative) ===\n\n"
+                "Project context for this project is INCOMPLETE. The fields below were "
+                "captured when the project was created and are established; do not ask "
+                "for them again.\n\n"
+                f"Required fields still missing: {missing}.\n\n"
+                "Run the INTAKE PROTOCOL (Step 0). Produce an INTAKE response asking "
+                "for the missing fields. Do not evaluate the submitted theme while "
+                "context is incomplete — if the researcher has submitted a theme, "
+                "acknowledge it and collect the missing context first.\n\n"
+                "When the researcher's answers complete the record, return the FULL "
+                "<project_context> element with every field populated and "
+                "<context_completeness>COMPLETE</context_completeness>. The server "
+                "persists that element verbatim, so anything you omit is lost.\n\n"
+                f"{project_xml}\n\n"
+                f"{query_id_rule}"
+            )
         blocks.append({"type": "text", "text": context_block})
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     return blocks
@@ -271,25 +301,70 @@ def parse_response(text):
         return None, str(e)
 
 
-def current_project():
-    """The project the single-project UI operates on.
+PROJECT_TYPE_LABELS = [
+    ("EXISTING_PRODUCT_ITERATION", "Existing product — iteration"),
+    ("EXISTING_PRODUCT_REDESIGN", "Existing product — redesign"),
+    ("NEW_PRODUCT", "New product"),
+    ("UNKNOWN", "Not sure yet"),
+]
 
-    A shim for this phase only: storage is multi-project now, but the screens
-    are not yet. Replaced by real per-project routing when the landing screen
-    lands. Returns None when there are no projects at all.
-    """
-    projects = state.list_projects()
-    if not projects:
-        return None
-    return state.load_project(projects[0]["project_id"])
+
+def require_project(project_id):
+    """Load a project or 404. Ids come from the URL, so they are untrusted."""
+    project = state.load_project(project_id)
+    if project is None:
+        abort(404)
+    return project
+
+
+def landing_projects():
+    """Index entries decorated with the counts the landing screen shows."""
+    rows = []
+    for entry in state.list_projects():
+        pid = entry["project_id"]
+        rows.append({
+            **entry,
+            "reference_count": len(list(resources.reference_dir(pid).glob("*.md"))),
+            "history_count": len(list(resources.history_dir(pid).glob("*.json"))),
+        })
+    return rows
 
 
 @app.route("/", methods=["GET"])
 def home():
+    return render_template(
+        "landing.html",
+        projects=landing_projects(),
+        project_types=PROJECT_TYPE_LABELS,
+        form={},
+        error=None,
+    )
+
+
+@app.route("/projects", methods=["POST"])
+def create_project():
+    try:
+        project = state.create_project(
+            request.form.get("project_name"),
+            request.form.get("project_type"),
+            request.form.get("research_objective"),
+        )
+    except ValueError as e:
+        return render_template(
+            "landing.html",
+            projects=landing_projects(),
+            project_types=PROJECT_TYPE_LABELS,
+            form=request.form,
+            error=str(e),
+        ), 400
+    return redirect(url_for("workspace", project_id=project["project_id"]))
+
+
+@app.route("/projects/<project_id>", methods=["GET"])
+def workspace(project_id):
+    project_state = require_project(project_id)
+    state.touch_project(project_id)
     corpora = load_corpora()
-    project_state = current_project()
-    if project_state is None:
-        return "No project yet. Project creation lands in the next phase.", 200
     return render_template(
         "index.html",
         loaded_files=summarise_corpora(corpora, project_state),
@@ -297,8 +372,8 @@ def home():
     )
 
 
-@app.route("/ask", methods=["POST"])
-def ask():
+@app.route("/projects/<project_id>/ask", methods=["POST"])
+def ask(project_id):
     """Phase 1 of the two-agent flow, streamed.
 
     Runs Agent 1 and emits Server-Sent Events as sections of the response
@@ -310,10 +385,8 @@ def ask():
     if not question:
         return jsonify({"error": "empty question"}), 400
 
+    project_state = require_project(project_id)
     corpora = load_corpora()
-    project_state = current_project()
-    if project_state is None:
-        return jsonify({"error": "No project selected."}), 400
     query_id = state.generate_query_id(project_state)
     system_blocks = build_system_blocks(corpora, project_state, query_id)
 
@@ -452,6 +525,16 @@ def ask():
             return
 
         response_type = root.findtext("attributes/response_type")
+
+        # An INTAKE response carries the project_context the copilot has
+        # assembled. Persist it: that is what moves a project from the three
+        # fields the form captured to COMPLETE, after which the block above
+        # stops asking and synthesis proceeds.
+        incoming_context = root.find("project_context")
+        if incoming_context is not None:
+            fields = {child.tag: (child.text or "") for child in incoming_context}
+            state.apply_context(project_state, fields)
+
         state.save_project(project_state)
 
         # qa_review is intentionally NOT present on root yet — right_pane.html
@@ -484,8 +567,8 @@ def ask():
     )
 
 
-@app.route("/qa", methods=["POST"])
-def qa():
+@app.route("/projects/<project_id>/qa", methods=["POST"])
+def qa(project_id):
     """Phase 2 of the two-agent flow, streamed.
 
     Receives Agent 1's full XML, runs Agent 2 against it, and emits one event
@@ -493,6 +576,7 @@ def qa():
     after ~47s of blank screen. The final frame carries the rendered surface and
     the fragment that invalidates Agent 1's verdict when the gate fails.
     """
+    require_project(project_id)
     data = request.get_json(silent=True) or {}
     agent1_xml = (data.get("agent1_xml") or "").strip()
     if not agent1_xml:
