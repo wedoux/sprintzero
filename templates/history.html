@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ project_state.project_name }} · History</title>
+    {% include 'partials/styles.html' %}
+    <style>
+        .hist { max-width: 940px; margin: 0 auto; padding: 40px 32px 72px 32px; }
+        .hist-crumbs { font-size: 12.5px; color: var(--ink-500); margin-bottom: 8px; }
+        .hist-crumbs a { color: var(--navy-500); text-decoration: none; }
+        .hist-crumbs a:hover { text-decoration: underline; }
+        .hist-title { font-size: 23px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink-900); }
+        .hist-sub { color: var(--ink-500); font-size: 13px; margin: 6px 0 30px 0; }
+        .hist-row {
+            display: block; text-decoration: none; color: inherit;
+            background: white; border: 1px solid var(--line-200);
+            border-radius: var(--radius-lg); padding: 15px 17px; margin-bottom: 9px;
+            box-shadow: var(--shadow-sm);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .hist-row:hover { border-color: var(--navy-300); box-shadow: var(--shadow-md); }
+        .hist-row-top { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+        .hist-qid {
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 10.5px; font-weight: 700; color: var(--ink-500);
+        }
+        .hist-cls { font-size: 12px; font-weight: 800; letter-spacing: -0.01em; }
+        .hist-cls.STRONG { color: var(--strength-strong-ink); }
+        .hist-cls.UNCERTAIN { color: var(--strength-moderate-ink); }
+        .hist-cls.WEAK { color: var(--strength-weak-ink); }
+        .hist-qa {
+            margin-left: auto; flex-shrink: 0;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; padding: 3px 9px; border-radius: var(--radius-full);
+        }
+        .hist-qa.QA_PASSED { background: var(--qa-pass-soft); color: var(--qa-pass-ink); }
+        .hist-qa.QA_FAILED { background: var(--qa-fail-soft); color: var(--qa-fail-ink); }
+        .hist-theme { font-size: 13.5px; color: var(--ink-800); line-height: 1.55; }
+        .hist-verdict { font-size: 12.5px; color: var(--ink-500); margin-top: 6px; line-height: 1.5; }
+        .hist-meta { font-size: 11px; color: var(--ink-400); margin-top: 7px; }
+        .hist-empty {
+            border: 1px dashed var(--line-200); border-radius: var(--radius-lg);
+            padding: 30px; text-align: center; color: var(--ink-500);
+            font-size: 13px; background: var(--bg-50);
+        }
+    </style>
+</head>
+<body>
+<div class="hist">
+    <div class="hist-crumbs">
+        <a href="/">Projects</a> ·
+        <a href="/projects/{{ project_state.project_id }}">{{ project_state.project_name }}</a>
+    </div>
+    <div class="hist-title">Evaluated themes</div>
+    <div class="hist-sub">
+        Every theme that reached a verdict in this project. Each one re-renders
+        exactly as it did when it was produced.
+    </div>
+
+    {% if records %}
+    {% for r in records %}
+    <a class="hist-row" href="/projects/{{ project_state.project_id }}/history/{{ r.query_id }}">
+        <div class="hist-row-top">
+            <span class="hist-qid">{{ r.query_id }}</span>
+            {% if r.classification %}
+            <span class="hist-cls {{ r.classification }}">{{ r.classification }}</span>
+            {% endif %}
+            {% if r.qa_status %}
+            <span class="hist-qa {{ r.qa_status }}">{{ r.qa_status.replace('QA_', '') }}</span>
+            {% endif %}
+        </div>
+        <div class="hist-theme">{{ r.theme }}</div>
+        {% if r.one_line_verdict %}
+        <div class="hist-verdict">{{ r.one_line_verdict }}</div>
+        {% endif %}
+        <div class="hist-meta">
+            {{ r.response_type }}
+            {% if r.confidence_score %}· confidence {{ r.confidence_score }}{% endif %}
+            {% if r.stability_status %}· {{ r.stability_status|lower }}{% endif %}
+            · {{ r.created_at[:16].replace('T', ' ') }}
+        </div>
+    </a>
+    {% endfor %}
+    {% else %}
+    <div class="hist-empty">
+        No themes evaluated yet. Submit one from the project workspace.
+    </div>
+    {% endif %}
+</div>
+</body>
+</html>

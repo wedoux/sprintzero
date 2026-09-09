@@ -69,12 +69,33 @@
 
     {# QA status, hoisted. Starts pending; the client fills it when /qa lands.
        Schema, QA GATE: the stamp must be shown prominently, not buried. #}
+    {% if replay_qa_status %}
+    {# Replaying a stored verdict: there is no client to resolve the band, and
+       showing "Running…" for a query that finished days ago would be a lie. #}
+    {% set replay_band = 'degraded' if qa_degraded
+                         else ('passed' if replay_qa_status == 'QA_PASSED' else 'failed') %}
+    <div id="qa-band" class="qa-band qa-band-{{ replay_band }}">
+      <span class="qa-band-dot"></span>
+      <span class="qa-band-label">QA validation</span>
+      <span class="qa-band-value">
+        {%- if qa_degraded %}Incomplete
+        {%- elif replay_qa_status == 'QA_PASSED' %}Passed
+        {%- else %}Failed{% endif -%}
+      </span>
+      <span class="qa-band-hint">
+        {%- if qa_degraded %}Verdict unvalidated — QA did not complete
+        {%- elif replay_qa_status == 'QA_PASSED' %}Verdict validated — committable
+        {%- else %}Verdict blocked — not committable{% endif -%}
+      </span>
+    </div>
+    {% else %}
     <div id="qa-band" class="qa-band qa-band-pending">
       <span class="qa-band-dot"></span>
       <span class="qa-band-label">QA validation</span>
       <span class="qa-band-value">Running…</span>
       <span class="qa-band-hint">Verdict not committable until QA returns</span>
     </div>
+    {% endif %}
 
     {% if verdict is not none %}
       {% include 'partials/verdict_banner.html' %}

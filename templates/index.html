@@ -537,7 +537,13 @@ async function submit(text) {
     const qaResult = await streamPhase(log, '/projects/' + PROJECT_ID + '/qa', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ agent1_xml: result.agent1_xml }),
+        // The theme and query id ride along so the verdict can be
+        // recorded against this project once QA has stamped it.
+        body: JSON.stringify({
+            agent1_xml: result.agent1_xml,
+            query_id: result.query_id,
+            theme: text,
+        }),
     }, {
         // One entry per check as it lands, carrying the verdict it reached.
         check: function (c) {

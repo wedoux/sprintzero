@@ -13,6 +13,7 @@ from urllib.parse import quote
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
                    request, stream_with_context, url_for)
 
+import history
 import instrumentation
 import model_client
 import reference
@@ -349,7 +350,7 @@ def landing_projects():
         rows.append({
             **entry,
             "reference_count": len(list(resources.reference_dir(pid).glob("*.md"))),
-            "history_count": len(list(resources.history_dir(pid).glob("*.json"))),
+            "history_count": history.count(pid),
         })
     return rows
 
@@ -395,6 +396,43 @@ def workspace(project_id):
         project_state=project_state,
         source_types=reference.SOURCE_TYPES,
         reference_error=request.args.get("reference_error"),
+        history_count=history.count(project_id),
+    )
+
+
+@app.route("/projects/<project_id>/history", methods=["GET"])
+def project_history(project_id):
+    project = require_project(project_id)
+    return render_template(
+        "history.html",
+        project_state=project,
+        records=history.list_records(project_id),
+    )
+
+
+@app.route("/projects/<project_id>/history/<query_id>", methods=["GET"])
+def history_detail(project_id, query_id):
+    project = require_project(project_id)
+    root, entry = history.document(project_id, query_id)
+    if entry is None:
+        abort(404)
+    # Rendered through the same right_pane.html the live flow uses, so a past
+    # verdict cannot drift from how it originally appeared.
+    qa_review = root.find("qa_review") if root is not None else None
+    required_action, blocking, degraded = qa_gate_reason(
+        qa_review, entry.get("qa_status"))
+    return render_template(
+        "history_detail.html",
+        project_state=project,
+        entry=entry,
+        root=root,
+        response_type=entry.get("response_type"),
+        qa_checks=extract_qa_checks(qa_review),
+        qa_degraded=degraded,
+        required_action=required_action,
+        blocking=blocking,
+        replay_qa_status=entry.get("qa_status"),
+        replay_gate=(entry.get("qa_status") == "QA_FAILED"),
     )
 
 
@@ -647,6 +685,8 @@ def qa(project_id):
     require_project(project_id)
     data = request.get_json(silent=True) or {}
     agent1_xml = (data.get("agent1_xml") or "").strip()
+    query_id = (data.get("query_id") or "").strip()
+    theme = data.get("theme") or ""
     if not agent1_xml:
         return jsonify({"error": "missing agent1_xml"}), 400
 
@@ -702,6 +742,12 @@ def qa(project_id):
                 blocking=blocking,
                 degraded=degraded,
             )
+
+        # Record against the project once the document is complete — that is,
+        # after the QA gate has stamped it. Recorded whatever the verdict, so a
+        # blocked one is visible in the history rather than quietly missing;
+        # the stored qa_status says which it was.
+        history.record(project_id, query_id, theme, root)
 
         yield sse("done", {
             "qa_html": qa_html,
