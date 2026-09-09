@@ -271,10 +271,25 @@ def parse_response(text):
         return None, str(e)
 
 
+def current_project():
+    """The project the single-project UI operates on.
+
+    A shim for this phase only: storage is multi-project now, but the screens
+    are not yet. Replaced by real per-project routing when the landing screen
+    lands. Returns None when there are no projects at all.
+    """
+    projects = state.list_projects()
+    if not projects:
+        return None
+    return state.load_project(projects[0]["project_id"])
+
+
 @app.route("/", methods=["GET"])
 def home():
     corpora = load_corpora()
-    project_state = state.load_state()
+    project_state = current_project()
+    if project_state is None:
+        return "No project yet. Project creation lands in the next phase.", 200
     return render_template(
         "index.html",
         loaded_files=summarise_corpora(corpora, project_state),
@@ -296,7 +311,9 @@ def ask():
         return jsonify({"error": "empty question"}), 400
 
     corpora = load_corpora()
-    project_state = state.load_state()
+    project_state = current_project()
+    if project_state is None:
+        return jsonify({"error": "No project selected."}), 400
     query_id = state.generate_query_id(project_state)
     system_blocks = build_system_blocks(corpora, project_state, query_id)
 
@@ -435,7 +452,7 @@ def ask():
             return
 
         response_type = root.findtext("attributes/response_type")
-        state.save_state(project_state)
+        state.save_project(project_state)
 
         # qa_review is intentionally NOT present on root yet — right_pane.html
         # renders the pending QA band, which the client resolves once /qa lands.
