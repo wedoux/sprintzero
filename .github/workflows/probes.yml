@@ -1,0 +1,59 @@
+name: Probes
+
+# The eight offline probes are deterministic and need no API key - the model is
+# stubbed - so they cost nothing to run on every push. Probes that spend real
+# money (_probe_streaming, _probe_qa_latency, _probe_agent1_models,
+# _probe_phase*) are deliberately excluded and must never run here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  probes:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # pywebview and keyring are desktop-only and pull GUI/DBus deps that
+          # the probes never touch, so install just what the web app needs.
+          pip install flask anthropic python-dotenv
+
+      - name: Run offline probes
+        run: |
+          failed=0
+          for p in _probe_design_tokens _probe_qa_gate _probe_signal_first_ia \
+                   _probe_parse_retry _probe_projects _probe_intake \
+                   _probe_reference_data _probe_history; do
+            echo "::group::$p"
+            if python "$p.py"; then echo "PASS $p"; else echo "::error::$p failed"; failed=1; fi
+            echo "::endgroup::"
+          done
+          exit $failed
+
+      - name: Assert no credential is committed
+        run: |
+          if git grep -nE 'sk-ant-[A-Za-z0-9_-]{12,}' -- . ':!*.yml' ':!.env.example'; then
+            echo "::error::An API key literal is present in tracked files."
+            exit 1
+          fi
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked and must not be."
+            exit 1
+          fi
+          echo "No credentials in tracked files."

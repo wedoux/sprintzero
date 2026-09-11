@@ -132,13 +132,13 @@
     {% if fa is not none and fa.findtext('falsification_result') %}
     <button class="signal-chip" data-target="card-falsification" type="button">
       <span class="signal-chip-label">Falsification</span>
-      <span class="signal-chip-val">{{ fa.findtext('falsification_result') }}</span>
+      <span class="signal-chip-val">{{ fa.findtext('falsification_result') | signal_token }}</span>
     </button>
     {% endif %}
     {% if tac is not none and tac.findtext('transfer_verdict') %}
     <button class="signal-chip" data-target="card-transfer" type="button">
       <span class="signal-chip-label">Transfer</span>
-      <span class="signal-chip-val">{{ tac.findtext('transfer_verdict') }}</span>
+      <span class="signal-chip-val">{{ tac.findtext('transfer_verdict') | signal_token }}</span>
     </button>
     {% endif %}
     {% if gap_list %}
@@ -218,7 +218,7 @@
       <details class="spine-card" id="card-falsification">
         <summary>
           <span class="card-title">Falsification attempt</span>
-          <span class="card-summary">{{ fa.findtext('falsification_result') or 'Ran the test' }}</span>
+          <span class="card-summary">{{ fa.findtext('falsification_result') | signal_token or 'Ran the test' }}</span>
         </summary>
         <div class="card-body">
           <div class="field">
@@ -241,7 +241,7 @@
       <details class="spine-card" id="card-transfer">
         <summary>
           <span class="card-title">Transfer assumption check</span>
-          <span class="card-summary">{{ tac.findtext('transfer_verdict') or 'Assessed transferability' }}</span>
+          <span class="card-summary">{{ tac.findtext('transfer_verdict') | signal_token or 'Assessed transferability' }}</span>
         </summary>
         <div class="card-body">
           <div class="field"><div class="field-label">Corpus population</div><div class="field-value">{{ tac.findtext('corpus_population') }}</div></div>

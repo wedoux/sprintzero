@@ -119,6 +119,27 @@ def qa_gate_reason(qa_review_element, qa_status):
     return required_action, blocking, not (required_action or blocking)
 
 
+ENUM_TOKEN_RE = re.compile(r"^([A-Z][A-Z_]{2,})\b")
+
+
+@app.template_filter("signal_token")
+def signal_token(value, limit=30):
+    """Reduce a schema field to the status it leads with.
+
+    Fields like transfer_verdict are specified as an enum but the model often
+    writes the enum followed by a sentence of justification. A Tier 2 chip is a
+    glanceable status; rendering the whole paragraph inside one broke the strip
+    layout. The full text is still shown in the Tier 3 card.
+    """
+    text = (value or "").strip()
+    if not text:
+        return ""
+    match = ENUM_TOKEN_RE.match(text)
+    if match:
+        return match.group(1)
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "\u2026"
+
+
 def sse(event, payload):
     """One Server-Sent Event frame."""
     return f"event: {event}\ndata: {json.dumps(payload)}\n\n"

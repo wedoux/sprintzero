@@ -57,7 +57,7 @@ FULL = """<SprintZero_response>
     <corpus_population>MARKER_CORPUSPOP</corpus_population>
     <target_population>MARKER_TARGETPOP</target_population>
     <structural_risks>MARKER_RISKS</structural_risks>
-    <transfer_verdict>TRANSFER_UNCERTAIN</transfer_verdict>
+    <transfer_verdict>TRANSFER_UNCERTAIN within the stated US iOS scope. The corpus and target are aligned; the genuine risk is base-rate uncertainty rather than geographic transfer.</transfer_verdict>
     <corpus_required>MARKER_TRANSFERCORPUS</corpus_required>
   </transfer_assumption_check>
   <gap_flags>
@@ -152,6 +152,22 @@ for t in targets:
             f"CHIP VIOLATION: chip targets {t!r} but no element carries that id. "
             "A chip that jumps nowhere is worse than no chip."
         )
+
+# --- 4b. Chips must stay glanceable -----------------------------------------
+# transfer_verdict is specified as an enum but the model often writes the enum
+# followed by a sentence. Rendering that inside a Tier 2 chip broke the strip
+# into a wall of wrapped text — visible, but only once a real verdict was long.
+chip_values = re.findall(r'<span class="signal-chip-val">([^<]*)</span>', html)
+for value in chip_values:
+    text = value.strip()
+    if len(text) > 32:
+        violations.append(
+            f"CHIP OVERFLOW: a signal chip renders {len(text)} characters "
+            f"({text[:40]!r}…). A chip is a glanceable status; the full text "
+            "belongs in the Tier 3 card."
+        )
+    if "\n" in text:
+        violations.append(f"CHIP OVERFLOW: a signal chip contains a newline ({text[:40]!r}).")
 
 # --- 5. Grouping ------------------------------------------------------------
 groups = re.findall(r'class="tier3-group-label">([^<]+)<', html)

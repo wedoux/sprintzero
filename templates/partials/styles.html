@@ -700,6 +700,12 @@
             font-weight: 700; color: var(--ink-500);
         }
         .signal-chip-val { font-weight: 700; font-size: 11.5px; color: var(--ink-800); }
+        /* A chip is one glanceable line. Long model prose used to wrap inside
+           one and break the strip; signal_token trims it, this enforces it. */
+        .signal-chip { white-space: nowrap; max-width: 100%; }
+        .signal-chip-val, .signal-chip-label {
+            overflow: hidden; text-overflow: ellipsis;
+        }
         .signal-chip-flag .signal-chip-num { color: var(--attention-ink); }
         .signal-chip-attention {
             background: linear-gradient(180deg, var(--attention-bg-a) 0%, var(--attention-bg-b) 100%);

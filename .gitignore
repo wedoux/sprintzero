@@ -9,3 +9,7 @@ dist/
 state/failures/
 state/projects/
 state/projects.json
+
+# macOS
+.DS_Store
+**/.DS_Store
