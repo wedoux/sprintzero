@@ -214,7 +214,7 @@ This is a **working prototype**, not production software. Specifically:
 
 ## About
 
-Built by **Nikolaos Antonogiannis** as the capstone for a **UX for AI Certificate** course
+Built by **Nikos Antonogiannis** as the capstone for a **UX for AI Certificate** course
 — my first agentic AI project.
 
 The interesting part wasn't wiring up two API calls. It was discovering that the hard
@@ -230,4 +230,4 @@ documented limitations of that dataset.
 
 ## License
 
-[MIT](LICENSE) © Nikolaos Antonogiannis
+[MIT](LICENSE) © Nikos Antonogiannis
