@@ -36,6 +36,15 @@ is a deterministic stub):
   9. Re-scoring from a saved readout (the --rewritten/--source-run path)
      produces the same result as scoring that same text fresh - no API call,
      same scoring function either way.
+ 10. The claim score reads "Claim matches its evidence: Yes|No" and checks it
+     against claim_honest; a readout without the line fails.
+ 11. Parsing fails closed: lower-case "clear" in prose isn't a CLEAR, and an
+     unfilled template line ("FIRES / CLEAR / NOT RUN", "STRONG / UNCERTAIN /
+     WEAK", "Yes / No") isn't read as its first option.
+ 12. A check reported twice keeps its most severe result: a later CLEAR never
+     overwrites an earlier FIRES or NOT RUN.
+ 13. A second run never overwrites a first: new_run_dir picks an unused
+     directory, and save_raw_readout refuses to replace an existing file.
 
 Free and deterministic.
 """
@@ -82,6 +91,12 @@ for front, _body in cases:
         violations.append(
             f"CASE {front.get('id')}: dry-run stub did not score clean on the "
             "strength axis against its own expected_strength."
+        )
+    claim_ok, _label = bench_run.score_claim(front, bench_run.parse_claim_match(stub))
+    if not claim_ok:
+        violations.append(
+            f"CASE {front.get('id')}: dry-run stub did not score clean on the "
+            "claim axis against its own claim_honest."
         )
 
 # All 28 cases must carry real gold labels post-R0.2 - the point of this
@@ -247,6 +262,61 @@ with tempfile.TemporaryDirectory() as tmp:
     if fresh_found != reloaded_found:
         violations.append("RESCORE: re-parsing a reloaded readout gave a different result than the original.")
 
+# --- 10. Claim score reads the claim line against claim_honest --------------
+honest = {"id": "c-01", "claim_honest": "yes"}
+overclaim = {"id": "c-02", "claim_honest": "no"}
+claim_checks = [
+    (honest, "**Claim matches its evidence:** Yes — hedged to the sample", True),
+    (honest, "**Claim matches its evidence:** No — says 'users'", False),
+    (overclaim, "Claim matches its evidence: No — one signal becomes the cause", True),
+    (overclaim, "## Finding: x\n\n**Evidence strength:** WEAK", False),
+]
+for front, text, expect_pass in claim_checks:
+    ok, _ = bench_run.score_claim(front, bench_run.parse_claim_match(text))
+    if ok is not expect_pass:
+        violations.append(f"CLAIM SCORE: {front['id']} on {text!r} expected passed={expect_pass}, got {ok}.")
+
+# --- 11. Parsing fails closed on prose and unfilled template lines ----------
+fail_closed = [
+    ("prose", "CK-02 is a judgement call here, and it's not clear the limit applies."),
+    ("unfilled CK row", "| CK-03 People treated as validated | FIRES / CLEAR / NOT RUN | | |"),
+]
+for name, text in fail_closed:
+    got = bench_run.parse_readout(text)
+    if got:
+        violations.append(f"FAIL CLOSED ({name}): expected nothing parsed, got {got}.")
+if bench_run.parse_strength("**Evidence strength: STRONG / UNCERTAIN / WEAK**") is not None:
+    violations.append("FAIL CLOSED: an unfilled strength line was read as a verdict.")
+if bench_run.parse_claim_match("**Claim matches its evidence:** Yes / No — reason") is not None:
+    violations.append("FAIL CLOSED: an unfilled claim line was read as a verdict.")
+
+# --- 12. Most severe result wins when a check is reported twice --------------
+severity = [
+    ("CK-05", "| CK-05 Scope | FIRES | 'users' |\n\nRoll-up: CK-05 CLEAR", "FIRES"),
+    ("CK-02", "| CK-02 Limits | NOT RUN | no limits |\nCK-02: CLEAR", "NOT RUN"),
+    ("CK-01", "CK-01: CLEAR\n| CK-01 Borrowed conviction | FIRES | 'the PM says' |", "FIRES"),
+]
+for code, text, expected in severity:
+    got = bench_run.parse_readout(text).get(code)
+    if got != expected:
+        violations.append(f"SEVERITY: expected {code} {expected}, got {got}.")
+
+# --- 13. A second run never overwrites the first ----------------------------
+with tempfile.TemporaryDirectory() as tmp:
+    base = Path(tmp) / "2026-01-01-skill-abc1234"
+    first = bench_run.new_run_dir(base)
+    bench_run.save_raw_readout(first, "CASE-01", "first run")
+    second = bench_run.new_run_dir(base)
+    if second == first:
+        violations.append("OVERWRITE: new_run_dir returned a directory that already exists.")
+    try:
+        bench_run.save_raw_readout(first, "CASE-01", "second run")
+        violations.append("OVERWRITE: save_raw_readout replaced an existing readout.")
+    except FileExistsError:
+        pass
+    if (first / "CASE-01.md").read_text() != "first run":
+        violations.append("OVERWRITE: the first run's readout was changed.")
+
 print("===== BENCHMARK ASSERTIONS =====")
 if violations:
     for v in violations:
@@ -256,4 +326,6 @@ print(f"PASS: {len(cases)} cases carry gold labels and score clean on both axes 
       "their own stub; coverage holds; a quiet CLEAR on missing input scores as FALSE "
       "PASS; strength scoring reads expected_strength/is_hypothesis per case, not an "
       "inferred filename rule; validate_gold_labels blocks a case missing either field; "
-      "raw readouts save and re-score identically; version resolves to a commit hash.")
+      "raw readouts save and re-score identically; version resolves to a commit hash; "
+      "the claim line scores against claim_honest; parsing fails closed on prose and "
+      "unfilled template lines; the most severe repeated result wins; no run overwrites another.")

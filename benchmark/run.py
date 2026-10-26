@@ -47,11 +47,30 @@ different failure modes:
                      before a case is run, not after reading what v1 said -
                      see the R0.2 note in RESULTS.md.
 
+  Claim score        R1: parses "Claim matches its evidence: Yes|No" and checks
+                     it against the case's `claim_honest` gold label. Scored on
+                     every case, NR included - honesty of the claim doesn't
+                     depend on whether a check could run. v1.0 never prints
+                     the line, so its baseline here is "not detected" across
+                     the board; the absolute R1 number is the one that means
+                     something.
+
+Parsing fails closed, the same way the checks must: a status word only counts
+in capitals (prose like "it's not clear" isn't a CLEAR), a template line
+copied back unfilled ("STRONG / UNCERTAIN / WEAK", "Yes / No") isn't read as
+its first option, and when a readout reports one check more than once the
+most severe result wins (FIRES, then NOT RUN, then CLEAR) - a later CLEAR
+never overwrites an earlier FIRES.
+
 Raw readouts are saved to benchmark/runs/<date>-<target>-<version>/<case-id>.md
 (dry-run included) - without them a run can't be re-scored or audited later
-against a scoring-logic change. --rewritten/--source-run re-scores unchanged
+against a scoring-logic change. If that directory already exists the run gets
+a -2, -3... suffix instead, and a readout file is never overwritten: two runs
+of the same commit on the same day used to share a directory, so the second
+silently replaced the first's evidence. --rewritten/--source-run re-scores unchanged
 cases from an earlier run's saved readouts (no new API calls) and only calls
-the model live for the cases named in --rewritten.
+the model live for the cases named in --rewritten; --source-run alone re-scores
+every case and calls nothing.
 
 Cost note: token counts here are an estimate (chars/4 vs words*1.35, the
 larger of the two), not a measurement - there is no usage.* to read until a
@@ -89,7 +108,9 @@ RESULTS_PATH = BENCH_DIR / "RESULTS.md"
 INPUT_RATE_PER_MTOK = 5.0
 OUTPUT_RATE_PER_MTOK = 25.0
 LIVE_RUN_ASK_THRESHOLD_USD = 5.0  # approved to run unattended under this; ask above it
-ASSUMED_OUTPUT_TOKENS_PER_CASE = 750  # v1.0 baseline: provenance + falsification + pitfalls table + verdict, no CK section
+# v1.0 readouts ran ~750 tokens; v2 adds declared upstream, six CK rows, four
+# question groups and a decision boundary. Over-estimating is the safe side.
+ASSUMED_OUTPUT_TOKENS_PER_CASE = 1500
 
 
 def _parse_front_matter(raw):
@@ -171,7 +192,7 @@ def print_cost_estimate(system_prompt, cases):
     print(f"Cases: {len(cases)}")
     print(f"Estimated input tokens:  ~{input_tokens:,}")
     print(f"Estimated output tokens: ~{output_tokens:,} "
-          f"(assumed {ASSUMED_OUTPUT_TOKENS_PER_CASE}/case, v1.0 has no CK section)")
+          f"(assumed {ASSUMED_OUTPUT_TOKENS_PER_CASE}/case)")
     print(f"Estimated cost @ ${INPUT_RATE_PER_MTOK:.0f}/MTok in, "
           f"${OUTPUT_RATE_PER_MTOK:.0f}/MTok out: ~${cost:.2f}")
     return cost
@@ -189,7 +210,9 @@ def dry_run_readout(front):
     else:
         expected = front.get("expected_strength") or ["WEAK"]
         strength_line = expected[0]
-    lines = ["## Finding: (dry-run stub)", "", f"**Evidence strength: {strength_line}**", ""]
+    claim_line = "Yes" if front.get("claim_honest") == "yes" else "No"
+    lines = ["## Finding: (dry-run stub)", "", f"**Evidence strength: {strength_line}**", "",
+             f"**Claim matches its evidence:** {claim_line} — (stub)", ""]
     for ck in front["checks_expected_to_fire"]:
         lines.append(f"{ck}: FIRES (stub)")
     for ck in front["checks_expected_clear"]:
@@ -211,25 +234,47 @@ def call_live_model(client, system_prompt, body, model):
     return text
 
 
+def new_run_dir(base):
+    """base itself if unused, else base-2, base-3... - never an existing one."""
+    candidate, n = base, 1
+    while candidate.exists():
+        n += 1
+        candidate = base.with_name(f"{base.name}-{n}")
+    return candidate
+
+
 def save_raw_readout(run_dir, case_id, readout):
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / f"{case_id}.md").write_text(readout)
+    # "x" mode: raises FileExistsError rather than replacing a saved readout.
+    with (run_dir / f"{case_id}.md").open("x") as f:
+        f.write(readout)
 
 
-RESULT_RE = re.compile(r"\b(CK-0[1-6]|P-0[1-8])\b[^\n]*?\b(FIRES|CLEAR|NOT RUN)\b", re.I)
-STRENGTH_RE = re.compile(r"Evidence strength:\s*\**\s*(STRONG|UNCERTAIN|WEAK|N/A)\b", re.I)
+# A status next to a "/" on either side is a template line copied back
+# unfilled ("FIRES / CLEAR / NOT RUN"), not a result - including its last option.
+RESULT_RE = re.compile(r"\b(CK-0[1-6]|P-0[1-8])\b[^\n]*?(?<!/ )(?<!/)\b(FIRES|CLEAR|NOT RUN)\b(?!\s*/)")
+STRENGTH_RE = re.compile(r"Evidence strength:\s*\**\s*(STRONG|UNCERTAIN|WEAK|N/A)\b(?!\s*/)", re.I)
+CLAIM_RE = re.compile(r"Claim matches its evidence:\s*\**\s*(Yes|No)\b(?!\s*/)", re.I)
+SEVERITY = {"FIRES": 3, "NOT RUN": 2, "CLEAR": 1}
 
 
 def parse_readout(readout):
     found = {}
     for m in RESULT_RE.finditer(readout):
-        found[m.group(1).upper()] = m.group(2).upper()
+        code, status = m.group(1), m.group(2)
+        if SEVERITY[status] > SEVERITY.get(found.get(code), 0):
+            found[code] = status
     return found
 
 
 def parse_strength(readout):
     m = STRENGTH_RE.search(readout)
     return m.group(1).upper() if m else None
+
+
+def parse_claim_match(readout):
+    m = CLAIM_RE.search(readout)
+    return m.group(1).capitalize() if m else None
 
 
 def score_case(front, found):
@@ -282,11 +327,22 @@ def score_strength(front, strength):
     return strength in expected, strength
 
 
+def score_claim(front, claim_match):
+    """Returns (passed, label). "Claim matches its evidence: Yes" should line
+    up with claim_honest: yes, and No with no. A missing line fails - there's
+    no pass without the readout saying it."""
+    if claim_match is None:
+        return False, None
+    expected = "Yes" if front.get("claim_honest") == "yes" else "No"
+    return claim_match == expected, claim_match
+
+
 def report(results, *, target, version, model, run_dir):
     date = datetime.date.today().isoformat()
     ck_failed = [r for r in results if r[1]]
     scored_on_strength = [r for r in results if r[3] is not None]
     strength_passed = [r for r in scored_on_strength if r[3]]
+    claim_passed = [r for r in results if r[5]]
     all_p_codes = sorted({c for _, _, p, *_ in results for c in p})
     lines = [
         f"\n## {date} — target={target} version={version} model={model}",
@@ -296,25 +352,29 @@ def report(results, *, target, version, model, run_dir):
         f"- Strength score: {len(strength_passed)}/{len(scored_on_strength)} "
         "(rated within each case's own expected_strength gold label; "
         f"{len(results) - len(scored_on_strength)} NR case(s) excluded, not applicable)",
+        f"- Claim score: {len(claim_passed)}/{len(results)} "
+        "('Claim matches its evidence' against each case's claim_honest gold label)",
         "- P-codes detected across all cases (v1.0 has no CK support; "
         f"partial credit only): {', '.join(all_p_codes) or 'none'}",
         f"- Raw readouts: {run_dir.relative_to(BENCH_DIR)}/",
         "",
     ]
-    for case_id, violations, _p_codes, strength_ok, strength_label in results:
-        ck_status = "FAIL" if violations else "PASS"
-        if strength_ok is None:
-            strength_status = "N/A"
-        else:
-            strength_status = "PASS" if strength_ok else "FAIL"
-        lines.append(f"- **{case_id}**: CK={ck_status} · "
-                     f"STRENGTH={strength_status} ({strength_label or 'not detected'})")
-        for v in violations:
+    for result in results:
+        lines.append(format_result_line(result, prefix="- **{id}**"))
+        for v in result[1]:
             lines.append(f"  - {v}")
     block = "\n".join(lines) + "\n"
     print(block)
     with RESULTS_PATH.open("a") as f:
         f.write(block)
+
+
+def format_result_line(result, prefix="  {id}"):
+    case_id, violations, _p_codes, strength_ok, strength_label, claim_ok, claim_label = result
+    strength_status = "N/A" if strength_ok is None else ("PASS" if strength_ok else "FAIL")
+    return (prefix.format(id=case_id) + f": CK={'FAIL' if violations else 'PASS'} · "
+            f"STRENGTH={strength_status} ({strength_label or 'not detected'}) · "
+            f"CLAIM={'PASS' if claim_ok else 'FAIL'} ({claim_label or 'not detected'})")
 
 
 def main():
@@ -331,7 +391,8 @@ def main():
                      "All other cases are re-scored from --source-run instead of re-calling "
                      "the model - use this when only a few cases changed since an earlier run.")
     ap.add_argument("--source-run", help="Run directory (under benchmark/runs/) to pull saved "
-                     "readouts from for cases not in --rewritten. Required with --rewritten.")
+                     "readouts from for cases not in --rewritten. Required with --rewritten; "
+                     "on its own, re-scores every case from it and calls nothing.")
     args = ap.parse_args()
 
     if args.target == "app":
@@ -348,14 +409,16 @@ def main():
     system_prompt = build_skill_system_prompt(args.skill_path)
     version = get_skill_version(args.skill_path)
     date = datetime.date.today().isoformat()
-    run_dir = RUNS_DIR / f"{date}-{args.target}-{version}"
+    suffix = "-dry-run" if args.dry_run else ""
+    run_dir = new_run_dir(RUNS_DIR / f"{date}-{args.target}-{version}{suffix}")
 
     def score_and_save(front, readout):
         save_raw_readout(run_dir, front["id"], readout)
         found = parse_readout(readout)
         violations, p_codes = score_case(front, found)
         strength_ok, strength_label = score_strength(front, parse_strength(readout))
-        return (front["id"], violations, p_codes, strength_ok, strength_label)
+        claim_ok, claim_label = score_claim(front, parse_claim_match(readout))
+        return (front["id"], violations, p_codes, strength_ok, strength_label, claim_ok, claim_label)
 
     if args.dry_run:
         results = [score_and_save(front, dry_run_readout(front)) for front, body in cases]
@@ -365,7 +428,10 @@ def main():
     validate_gold_labels(cases)
 
     rewritten_ids = set(args.rewritten.split(",")) if args.rewritten else None
-    if rewritten_ids is None:
+    if rewritten_ids is None and args.source_run:
+        cases_to_call_live = []
+        cases_to_rescore = cases
+    elif rewritten_ids is None:
         cases_to_call_live = cases
         cases_to_rescore = []
     else:
@@ -383,10 +449,7 @@ def main():
             print(f"ERROR: --source-run is missing {saved} - was this case renamed?")
             sys.exit(2)
         results.append(score_and_save(front, saved.read_text()))
-        _id, violations, _p, strength_ok, strength_label = results[-1]
-        print(f"  {_id}: CK={'FAIL' if violations else 'PASS'} · "
-              f"STRENGTH={'N/A' if strength_ok is None else ('PASS' if strength_ok else 'FAIL')} "
-              f"({strength_label or 'not detected'}) [re-scored from {args.source_run}]")
+        print(format_result_line(results[-1]) + f" [re-scored from {args.source_run}]")
 
     if not cases_to_call_live:
         report(results, target="skill", version=version, model="(rescored only)", run_dir=run_dir)
@@ -415,7 +478,7 @@ def main():
         try:
             readout = call_live_model(client, system_prompt, body, args.model)
         except Exception as exc:
-            results.append((front["id"], [f"ERROR: {exc}"], [], False, None))
+            results.append((front["id"], [f"ERROR: {exc}"], [], False, None, False, None))
             print(f"  {front['id']}: ERROR ({exc})")
             # A quota/rate-limit error will reject every subsequent call
             # identically - stop rather than spend the printed estimate
@@ -427,12 +490,8 @@ def main():
                 stop_early = True
                 break
             continue
-        result = score_and_save(front, readout)
-        results.append(result)
-        _id, violations, p_codes, strength_ok, strength_label = result
-        print(f"  {_id}: CK={'FAIL' if violations else 'PASS'} · "
-              f"STRENGTH={'N/A' if strength_ok is None else ('PASS' if strength_ok else 'FAIL')} "
-              f"({strength_label or 'not detected'})")
+        results.append(score_and_save(front, readout))
+        print(format_result_line(results[-1]))
 
     report(results, target="skill",
            version=version + (" (STOPPED EARLY)" if stop_early else ""),
