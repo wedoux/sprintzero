@@ -3,6 +3,8 @@ id: CK-01-clear-02
 checks_expected_to_fire: []
 checks_expected_clear: [CK-01]
 checks_expected_not_run: []
+expected_strength: [WEAK]
+claim_honest: no
 synthetic: true
 notes: An authority's opinion is mentioned only as framing; the real support is two cited evidence units.
 ---

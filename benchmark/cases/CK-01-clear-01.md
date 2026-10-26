@@ -3,6 +3,8 @@ id: CK-01-clear-01
 checks_expected_to_fire: []
 checks_expected_clear: [CK-01]
 checks_expected_not_run: []
+expected_strength: [WEAK]
+claim_honest: no
 synthetic: true
 notes: The high-confidence belief is backed by a third-party study with a source_ref, so it's grounded.
 ---

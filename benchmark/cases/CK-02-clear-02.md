@@ -3,6 +3,9 @@ id: CK-02-clear-02
 checks_expected_to_fire: []
 checks_expected_clear: [CK-02]
 checks_expected_not_run: []
+expected_strength: [UNCERTAIN]
+is_hypothesis: true
+claim_honest: yes
 synthetic: true
 notes: Claim about a population outside the sample is explicitly labelled a hypothesis, not asserted.
 ---

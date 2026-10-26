@@ -3,6 +3,8 @@ id: WU-baseline-01
 checks_expected_to_fire: [CK-01, CK-05]
 checks_expected_clear: [CK-03, CK-04]
 checks_expected_not_run: [CK-02, CK-06]
+expected_strength: [WEAK, UNCERTAIN]
+claim_honest: no
 synthetic: false
 notes: Real Weather Underground corpus. Reproduces SprintZero's own canonical misreading — forecast model accuracy is not the problem; R03 defends accuracy while R05/R09/R13 point to stale cached data instead.
 ---

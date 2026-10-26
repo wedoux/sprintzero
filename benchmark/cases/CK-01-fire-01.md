@@ -3,6 +3,8 @@ id: CK-01-fire-01
 checks_expected_to_fire: [CK-01]
 checks_expected_clear: []
 checks_expected_not_run: []
+expected_strength: [WEAK, UNCERTAIN]
+claim_honest: no
 synthetic: true
 notes: Claim rests on a high-confidence authority belief with no supporting evidence cited.
 ---

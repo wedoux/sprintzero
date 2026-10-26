@@ -3,6 +3,8 @@ id: CK-04-clear-02
 checks_expected_to_fire: []
 checks_expected_clear: [CK-04]
 checks_expected_not_run: []
+expected_strength: [WEAK]
+claim_honest: no
 synthetic: true
 notes: Product claim has no fresh evidence this session but rests on a belief the whole team agreed on.
 ---

@@ -28,20 +28,30 @@ different failure modes:
                      (spec principle 1), so a quiet pass on missing input is
                      worse than an honest NOT RUN.
 
-  Strength score     Label-independent: parses the STRONG/UNCERTAIN/WEAK
-                     verdict on the claim under review. A fire case (and the
-                     Weather Underground baseline, which is fire-shaped even
-                     though its filename doesn't say so) passes if the claim
-                     is NOT rated STRONG; a clear case passes if it is NOT
-                     rated WEAK. NR cases aren't scored on this axis - they
-                     test check applicability, not verdict quality. This is
-                     what makes v1 vs a future R1 a fair comparison: a skill
-                     that emits no CK codes at all can still pass this axis
-                     by reasoning its way to a calibrated verdict.
+  Strength score     Label-independent: parses the STRONG/UNCERTAIN/WEAK (or
+                     N/A, for an explicitly-labelled hypothesis) verdict on
+                     the claim under review, and checks it against that
+                     case's own `expected_strength` gold label - not a
+                     filename-inferred rule. R0.1 used "fire passes if not
+                     STRONG, clear passes if not WEAK"; that rule scored a
+                     correctly-caught flaw as a failure whenever a "clear"
+                     case turned out to deserve WEAK for a real reason (see
+                     benchmark/RESULTS.md, R0.2). NR cases aren't scored on
+                     this axis at all (`expected_strength: []`) - they test
+                     check applicability, not verdict quality.
+
+                     Every case file must declare `expected_strength` and
+                     `claim_honest` before run.py will score it at all
+                     (checked by validate_gold_labels, enforced outside
+                     --dry-run). From R1 onward, gold labels are written
+                     before a case is run, not after reading what v1 said -
+                     see the R0.2 note in RESULTS.md.
 
 Raw readouts are saved to benchmark/runs/<date>-<target>-<version>/<case-id>.md
 (dry-run included) - without them a run can't be re-scored or audited later
-against a scoring-logic change.
+against a scoring-logic change. --rewritten/--source-run re-scores unchanged
+cases from an earlier run's saved readouts (no new API calls) and only calls
+the model live for the cases named in --rewritten.
 
 Cost note: token counts here are an estimate (chars/4 vs words*1.35, the
 larger of the two), not a measurement - there is no usage.* to read until a
@@ -169,10 +179,17 @@ def print_cost_estimate(system_prompt, cases):
 
 def dry_run_readout(front):
     """Deterministic stub - exercises the parse/score path with no network
-    call. UNCERTAIN passes the strength score either way (fire wants
-    not-STRONG, clear wants not-WEAK), so a clean dry run stays clean under
-    both scores."""
-    lines = ["## Finding: (dry-run stub)", "", "**Evidence strength: UNCERTAIN**", ""]
+    call. Picks a strength value from the case's own expected_strength (or
+    N/A for a declared hypothesis) so a clean dry run stays clean regardless
+    of which tiers a given case accepts. Uses .get, not [], so a draft case
+    with no gold labels yet can still be dry-run while it's being written -
+    only a live/rescore run enforces validate_gold_labels."""
+    if front.get("is_hypothesis"):
+        strength_line = "N/A"
+    else:
+        expected = front.get("expected_strength") or ["WEAK"]
+        strength_line = expected[0]
+    lines = ["## Finding: (dry-run stub)", "", f"**Evidence strength: {strength_line}**", ""]
     for ck in front["checks_expected_to_fire"]:
         lines.append(f"{ck}: FIRES (stub)")
     for ck in front["checks_expected_clear"]:
@@ -200,7 +217,7 @@ def save_raw_readout(run_dir, case_id, readout):
 
 
 RESULT_RE = re.compile(r"\b(CK-0[1-6]|P-0[1-8])\b[^\n]*?\b(FIRES|CLEAR|NOT RUN)\b", re.I)
-STRENGTH_RE = re.compile(r"Evidence strength:\s*\**\s*(STRONG|UNCERTAIN|WEAK)\b", re.I)
+STRENGTH_RE = re.compile(r"Evidence strength:\s*\**\s*(STRONG|UNCERTAIN|WEAK|N/A)\b", re.I)
 
 
 def parse_readout(readout):
@@ -235,19 +252,34 @@ def score_case(front, found):
     return violations, p_codes
 
 
+def validate_gold_labels(cases):
+    """Every case must declare its own gold labels before run.py will score
+    it - not a rule inferred from its filename. Missing a key entirely (not
+    just an empty list) is the failure: expected_strength: [] is a real,
+    intentional label for an NR case; omitting the key is an unlabelled
+    case. Raises rather than silently scoring against a guessed default."""
+    missing = [front["id"] for front, _ in cases
+               if "expected_strength" not in front or "claim_honest" not in front]
+    if missing:
+        raise ValueError(
+            "Missing expected_strength/claim_honest gold labels - required "
+            "before run.py will score a case, live or re-scored: "
+            + ", ".join(missing)
+        )
+
+
 def score_strength(front, strength):
-    """Returns (passed, label). passed is None when the case isn't scored on
-    this axis at all (NR cases test check applicability, not verdict
-    quality)."""
-    case_id = front["id"]
-    if case_id.startswith("NR-"):
+    """Returns (passed, label). passed is None when expected_strength is []
+    - NR cases test check applicability, not verdict quality, and declare
+    this explicitly rather than being inferred from the filename."""
+    expected = front.get("expected_strength") or []
+    if not expected:
         return None, strength
-    is_fire_type = "-fire-" in case_id or case_id.startswith("WU-baseline")
+    if front.get("is_hypothesis") and strength == "N/A":
+        return True, strength
     if strength is None:
         return False, strength
-    if is_fire_type:
-        return strength != "STRONG", strength
-    return strength != "WEAK", strength
+    return strength in expected, strength
 
 
 def report(results, *, target, version, model, run_dir):
@@ -262,7 +294,7 @@ def report(results, *, target, version, model, run_dir):
         f"- CK-ID score: {len(results) - len(ck_failed)}/{len(results)} "
         "(regex-matched FIRES/CLEAR/NOT RUN against front matter)",
         f"- Strength score: {len(strength_passed)}/{len(scored_on_strength)} "
-        "(fire cases not rated STRONG, clear cases not rated WEAK; "
+        "(rated within each case's own expected_strength gold label; "
         f"{len(results) - len(scored_on_strength)} NR case(s) excluded, not applicable)",
         "- P-codes detected across all cases (v1.0 has no CK support; "
         f"partial credit only): {', '.join(all_p_codes) or 'none'}",
@@ -295,6 +327,11 @@ def main():
     ap.add_argument("--force", action="store_true",
                      help=f"Proceed with a live run estimated above "
                           f"${LIVE_RUN_ASK_THRESHOLD_USD:.2f}.")
+    ap.add_argument("--rewritten", help="Comma-separated case IDs to actually call live. "
+                     "All other cases are re-scored from --source-run instead of re-calling "
+                     "the model - use this when only a few cases changed since an earlier run.")
+    ap.add_argument("--source-run", help="Run directory (under benchmark/runs/) to pull saved "
+                     "readouts from for cases not in --rewritten. Required with --rewritten.")
     args = ap.parse_args()
 
     if args.target == "app":
@@ -303,6 +340,9 @@ def main():
     if not args.skill_path:
         print("ERROR: --target skill requires --skill-path.")
         sys.exit(2)
+    if args.rewritten and not args.source_run:
+        print("ERROR: --rewritten requires --source-run.")
+        sys.exit(2)
 
     cases = load_all_cases()
     system_prompt = build_skill_system_prompt(args.skill_path)
@@ -310,7 +350,7 @@ def main():
     date = datetime.date.today().isoformat()
     run_dir = RUNS_DIR / f"{date}-{args.target}-{version}"
 
-    def score_and_save(front, body_or_none, readout):
+    def score_and_save(front, readout):
         save_raw_readout(run_dir, front["id"], readout)
         found = parse_readout(readout)
         violations, p_codes = score_case(front, found)
@@ -318,11 +358,41 @@ def main():
         return (front["id"], violations, p_codes, strength_ok, strength_label)
 
     if args.dry_run:
-        results = [score_and_save(front, body, dry_run_readout(front)) for front, body in cases]
+        results = [score_and_save(front, dry_run_readout(front)) for front, body in cases]
         report(results, target="skill", version=f"{version}-dry-run", model="stub", run_dir=run_dir)
         sys.exit(1 if any(v for _, v, *_ in results) else 0)
 
-    cost = print_cost_estimate(system_prompt, cases)
+    validate_gold_labels(cases)
+
+    rewritten_ids = set(args.rewritten.split(",")) if args.rewritten else None
+    if rewritten_ids is None:
+        cases_to_call_live = cases
+        cases_to_rescore = []
+    else:
+        cases_to_call_live = [c for c in cases if c[0]["id"] in rewritten_ids]
+        cases_to_rescore = [c for c in cases if c[0]["id"] not in rewritten_ids]
+        found_ids = {front["id"] for front, _ in cases_to_call_live}
+        if found_ids != rewritten_ids:
+            print(f"ERROR: --rewritten named case(s) not found: {rewritten_ids - found_ids}")
+            sys.exit(2)
+
+    results = []
+    for front, _body in cases_to_rescore:
+        saved = Path(args.source_run) / f"{front['id']}.md"
+        if not saved.exists():
+            print(f"ERROR: --source-run is missing {saved} - was this case renamed?")
+            sys.exit(2)
+        results.append(score_and_save(front, saved.read_text()))
+        _id, violations, _p, strength_ok, strength_label = results[-1]
+        print(f"  {_id}: CK={'FAIL' if violations else 'PASS'} · "
+              f"STRENGTH={'N/A' if strength_ok is None else ('PASS' if strength_ok else 'FAIL')} "
+              f"({strength_label or 'not detected'}) [re-scored from {args.source_run}]")
+
+    if not cases_to_call_live:
+        report(results, target="skill", version=version, model="(rescored only)", run_dir=run_dir)
+        return
+
+    cost = print_cost_estimate(system_prompt, cases_to_call_live)
     if cost > LIVE_RUN_ASK_THRESHOLD_USD and not args.force:
         print(f"\nEstimated cost ~${cost:.2f} exceeds the ${LIVE_RUN_ASK_THRESHOLD_USD:.2f} "
               "pre-approved threshold. Confirm with Nikos, then re-run with --force.")
@@ -340,9 +410,8 @@ def main():
     # live call's result along with it, which is a worse outcome than the
     # error itself: it throws away money already spent along with the
     # evidence of what it bought.
-    results = []
     stop_early = False
-    for front, body in cases:
+    for front, body in cases_to_call_live:
         try:
             readout = call_live_model(client, system_prompt, body, args.model)
         except Exception as exc:
@@ -358,7 +427,7 @@ def main():
                 stop_early = True
                 break
             continue
-        result = score_and_save(front, body, readout)
+        result = score_and_save(front, readout)
         results.append(result)
         _id, violations, p_codes, strength_ok, strength_label = result
         print(f"  {_id}: CK={'FAIL' if violations else 'PASS'} · "

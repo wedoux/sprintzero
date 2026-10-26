@@ -3,6 +3,8 @@ id: CK-01-fire-02
 checks_expected_to_fire: [CK-01]
 checks_expected_clear: []
 checks_expected_not_run: []
+expected_strength: [WEAK, UNCERTAIN]
+claim_honest: no
 synthetic: true
 notes: Claim's only support is an attributed opinion, not evidence from participants.
 ---

@@ -3,6 +3,8 @@ id: CK-02-fire-02
 checks_expected_to_fire: [CK-02]
 checks_expected_clear: []
 checks_expected_not_run: []
+expected_strength: [WEAK, UNCERTAIN]
+claim_honest: no
 synthetic: true
 notes: Study was a single short session; claim asserts long-term retention behaviour.
 ---

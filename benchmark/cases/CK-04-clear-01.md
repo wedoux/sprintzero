@@ -1,10 +1,12 @@
 ---
 id: CK-04-clear-01
 checks_expected_to_fire: []
-checks_expected_clear: [CK-04]
+checks_expected_clear: [CK-04, CK-05]
 checks_expected_not_run: []
+expected_strength: [STRONG, UNCERTAIN]
+claim_honest: yes
 synthetic: true
-notes: Product claim is backed by cited usability-session evidence describing what people did.
+notes: Rewritten twice. v1 - two sessions cited, evidence contradicted the claim. v2 - two sessions cited but still concluded "the right call," which is overreach from 2 of 6. v3 (this version) - all six sessions cited, claim scoped to exactly what's observed, no normative "right call" judgment.
 ---
 
 ## Belief register
@@ -14,8 +16,12 @@ notes: Product claim is backed by cited usability-session evidence describing wh
 (none declared)
 
 ## Evidence
-- INT-01: "I kept looking for save in the top-left, where it used to be, and clicked the wrong icon twice."
-- INT-04: "Took me a few seconds to find save after the redesign — I expected it where share usually sits."
+- INT-01: "Save? Top right, same as every app I use, didn't have to think about it."
+- INT-02: "Went straight for save top-right, no hesitation."
+- INT-03: "Top right for save, exactly where I'd look."
+- INT-04: "Went straight for the top right for save, it's exactly where I expected it to be."
+- INT-05: "Didn't think twice, save's top right like everywhere else."
+- INT-06: "Top right, found it instantly."
 
 ## Claims under review
-"Moving the save button to the top right is the right call — two sessions show people reaching for its old location and missing it."
+"In all 6 sessions, participants went straight to the top right for save without hesitation."

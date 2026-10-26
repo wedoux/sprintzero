@@ -3,6 +3,8 @@ id: CK-03-fire-01
 checks_expected_to_fire: [CK-03]
 checks_expected_clear: []
 checks_expected_not_run: []
+expected_strength: [WEAK, UNCERTAIN]
+claim_honest: no
 synthetic: true
 notes: A people-side claim is presented as proven rather than as a pattern in the sample.
 ---

@@ -1,10 +1,12 @@
 ---
 id: CK-06-clear-01
 checks_expected_to_fire: []
-checks_expected_clear: [CK-06]
+checks_expected_clear: [CK-06, CK-05]
 checks_expected_not_run: []
+expected_strength: [UNCERTAIN, STRONG]
+claim_honest: yes
 synthetic: true
-notes: Claim directly answers the declared question.
+notes: Rewritten - v1 claimed "most" from 2 of 6 cited units. This version cites all 6 and states the exact count.
 ---
 
 ## Belief register
@@ -20,7 +22,11 @@ limits: (none declared)
 
 ## Evidence
 - INT-01: "I didn't see a way to filter until you pointed at it."
-- INT-04: "Took me a while to spot the filter icon, it blends into the header."
+- INT-02: "I never noticed there was a filter option, had no idea it existed."
+- INT-03: "Took me the whole task to realize I could filter - found it by accident."
+- INT-04: "Didn't see it, I was looking at the top of the screen the whole time."
+- INT-05: "I spotted it eventually but only because I was told something was there."
+- INT-06: "Saw it right away, it's in a pretty obvious spot."
 
 ## Claims under review
-"Most participants did not notice the new filter button without being prompted."
+"5 of 6 participants did not notice the new filter button without being prompted."

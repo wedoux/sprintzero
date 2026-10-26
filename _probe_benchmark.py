@@ -1,7 +1,9 @@
 """Benchmark probe: the dry-run path scores correctly against a stub, the
 false-pass rule catches a quiet pass on missing input, raw readouts land on
-disk where a later audit can find them, the strength score applies to the
-right cases, and the version string is a commit hash, not a path.
+disk where a later audit can find them, the strength score is driven by each
+case's own gold labels (not an inferred filename rule), a case missing its
+gold labels blocks scoring, the version string is a commit hash, and the
+rescore-from-saved-readouts path works without a network call.
 
 Boundaries asserted (no API calls - the model is never invoked; dry_run_readout
 is a deterministic stub):
@@ -9,24 +11,31 @@ is a deterministic stub):
   1. The skill-path system prompt builder concatenates SKILL.md + references/
      + templates/ from an arbitrary directory, in that order.
   2. Every real case in benchmark/cases/ round-trips through the dry-run path
-     with zero violations on both scores - the stub is built directly from
-     each case's own front matter, so a mismatch here means the parser or
-     scorer is broken, not that a case is "hard".
+     with zero violations on both scores - the stub is built from each case's
+     own expected_strength/is_hypothesis, so a mismatch here means the parser
+     or scorer is broken, not that a case is "hard".
   3. CLEAR reported where checks_expected_not_run was declared scores as a
      FALSE PASS specifically (not just "any violation").
   4. A case missing its front matter block raises, rather than silently
      scoring as if it declared nothing.
-  5. The strength score: a fire-type case (including WU-baseline, which is
-     fire-shaped despite its filename) fails on STRONG and passes on
-     UNCERTAIN/WEAK; a clear-type case fails on WEAK and passes on
-     STRONG/UNCERTAIN; an NR case is not scored on this axis at all
-     (passed is None); a readout with no parseable strength label fails,
-     not "not applicable".
+  5. The strength score reads expected_strength from the case itself: a tier
+     inside that list passes, a tier outside it fails, an NR-style empty list
+     isn't scored at all (passed is None), a readout with no parseable label
+     fails (can't confirm a pass without one), and N/A only passes when the
+     case also declares is_hypothesis - otherwise it's just another label
+     outside the expected set.
   6. A dry run writes one raw-readout file per case under
      benchmark/runs/<date>-<target>-<version>/ - without these, a run can't
      be re-scored later against a scoring-logic change.
   7. get_skill_version returns a short commit hash for a real git checkout,
      and falls back (rather than raising) for a directory that isn't one.
+  8. validate_gold_labels raises when expected_strength or claim_honest is
+     missing entirely (not just empty), and passes when every case has both
+     keys declared - this is the gate that keeps a label-less case from ever
+     being scored live.
+  9. Re-scoring from a saved readout (the --rewritten/--source-run path)
+     produces the same result as scoring that same text fresh - no API call,
+     same scoring function either way.
 
 Free and deterministic.
 """
@@ -71,9 +80,15 @@ for front, _body in cases:
     strength_ok, _label = bench_run.score_strength(front, bench_run.parse_strength(stub))
     if strength_ok is False:
         violations.append(
-            f"CASE {front.get('id')}: dry-run stub (UNCERTAIN) failed the "
-            "strength score - it should pass fire and clear cases alike."
+            f"CASE {front.get('id')}: dry-run stub did not score clean on the "
+            "strength axis against its own expected_strength."
         )
+
+# All 28 cases must carry real gold labels post-R0.2 - the point of this
+# probe run is partly to prove that's actually true, not assumed.
+for front, _ in cases:
+    if "expected_strength" not in front or "claim_honest" not in front:
+        violations.append(f"GOLD LABELS: {front['id']} is missing expected_strength or claim_honest.")
 
 # Coverage check: at least 2 fire + 2 clear per CK-01..CK-06, per spec.
 for i in range(1, 7):
@@ -121,16 +136,16 @@ with tempfile.TemporaryDirectory() as tmp:
     except ValueError:
         pass
 
-# --- 5. Strength score applies to the right cases, with the right polarity -
-fire_front = {"id": "CK-05-fire-03"}
-clear_front = {"id": "CK-05-clear-03"}
-wu_front = {"id": "WU-baseline-01"}
-nr_front = {"id": "NR-04"}
+# --- 5. Strength score reads expected_strength from the case, not the id ---
+weak_only = {"id": "any-id-01", "expected_strength": ["WEAK"]}
+wide_open = {"id": "any-id-02", "expected_strength": ["UNCERTAIN", "STRONG"]}
+not_scored = {"id": "any-id-03", "expected_strength": []}
+hypothesis = {"id": "any-id-04", "expected_strength": ["UNCERTAIN"], "is_hypothesis": True}
+non_hypothesis_same_tiers = {"id": "any-id-05", "expected_strength": ["UNCERTAIN"]}
 
 checks = [
-    (fire_front, "STRONG", False), (fire_front, "UNCERTAIN", True), (fire_front, "WEAK", True),
-    (clear_front, "WEAK", False), (clear_front, "UNCERTAIN", True), (clear_front, "STRONG", True),
-    (wu_front, "STRONG", False), (wu_front, "UNCERTAIN", True),
+    (weak_only, "WEAK", True), (weak_only, "UNCERTAIN", False), (weak_only, "STRONG", False),
+    (wide_open, "UNCERTAIN", True), (wide_open, "STRONG", True), (wide_open, "WEAK", False),
 ]
 for front, label, expect_pass in checks:
     ok, _ = bench_run.score_strength(front, label)
@@ -140,11 +155,25 @@ for front, label, expect_pass in checks:
             f"passed={expect_pass}, got {ok}."
         )
 
-nr_ok, _ = bench_run.score_strength(nr_front, "STRONG")
-if nr_ok is not None:
-    violations.append(f"STRENGTH SCORE: an NR case must not be scored on this axis, got {nr_ok!r}.")
+not_scored_ok, _ = bench_run.score_strength(not_scored, "STRONG")
+if not_scored_ok is not None:
+    violations.append(
+        f"STRENGTH SCORE: expected_strength: [] must not be scored on this axis, got {not_scored_ok!r}."
+    )
 
-no_label_ok, no_label_val = bench_run.score_strength(fire_front, None)
+hyp_ok, hyp_label = bench_run.score_strength(hypothesis, "N/A")
+if hyp_ok is not True:
+    violations.append("STRENGTH SCORE: is_hypothesis case with N/A must pass.")
+
+non_hyp_na_ok, _ = bench_run.score_strength(non_hypothesis_same_tiers, "N/A")
+if non_hyp_na_ok is not False:
+    violations.append(
+        "STRENGTH SCORE: N/A must NOT auto-pass a case that doesn't declare "
+        "is_hypothesis, even if the readout says it - the escape hatch is "
+        "per-case, not per-label."
+    )
+
+no_label_ok, no_label_val = bench_run.score_strength(weak_only, None)
 if no_label_ok is not False or no_label_val is not None:
     violations.append(
         "STRENGTH SCORE: a readout with no parseable strength label must fail "
@@ -188,12 +217,43 @@ with tempfile.TemporaryDirectory() as tmp:
             f"VERSION: a non-git directory must fall back to something readable, got {got!r}."
         )
 
+# --- 8. validate_gold_labels is the actual enforcement gate ----------------
+labelled = [({"id": "ok-01", "expected_strength": ["WEAK"], "claim_honest": "no"}, "")]
+try:
+    bench_run.validate_gold_labels(labelled)
+except ValueError:
+    violations.append("GOLD LABELS: a fully-labelled case set was rejected.")
+
+missing_strength = [({"id": "bad-01", "claim_honest": "no"}, "")]
+missing_honest = [({"id": "bad-02", "expected_strength": []}, "")]
+for bad_set, which in [(missing_strength, "expected_strength"), (missing_honest, "claim_honest")]:
+    try:
+        bench_run.validate_gold_labels(bad_set)
+        violations.append(f"GOLD LABELS: a case missing {which} entirely was not rejected.")
+    except ValueError:
+        pass
+
+# --- 9. Re-scoring a saved readout matches scoring it fresh -----------------
+sample_front, _ = cases[0]
+sample_readout = bench_run.dry_run_readout(sample_front)
+with tempfile.TemporaryDirectory() as tmp:
+    source_run = Path(tmp) / "source-run"
+    bench_run.save_raw_readout(source_run, sample_front["id"], sample_readout)
+    reloaded = (source_run / f"{sample_front['id']}.md").read_text()
+    if reloaded != sample_readout:
+        violations.append("RESCORE: saved-then-reloaded readout text does not round-trip exactly.")
+    fresh_found = bench_run.parse_readout(sample_readout)
+    reloaded_found = bench_run.parse_readout(reloaded)
+    if fresh_found != reloaded_found:
+        violations.append("RESCORE: re-parsing a reloaded readout gave a different result than the original.")
+
 print("===== BENCHMARK ASSERTIONS =====")
 if violations:
     for v in violations:
         sys.stdout.write(f"FAIL: {v}\n")
     sys.exit(1)
-print(f"PASS: {len(cases)} cases parse and score clean on both axes against their "
-      "own stub; coverage holds; a quiet CLEAR on missing input scores as FALSE "
-      "PASS; strength scoring applies to the right cases with the right polarity; "
-      "raw readouts save per case; version resolves to a commit hash.")
+print(f"PASS: {len(cases)} cases carry gold labels and score clean on both axes against "
+      "their own stub; coverage holds; a quiet CLEAR on missing input scores as FALSE "
+      "PASS; strength scoring reads expected_strength/is_hypothesis per case, not an "
+      "inferred filename rule; validate_gold_labels blocks a case missing either field; "
+      "raw readouts save and re-score identically; version resolves to a commit hash.")

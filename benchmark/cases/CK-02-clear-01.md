@@ -1,10 +1,12 @@
 ---
 id: CK-02-clear-01
 checks_expected_to_fire: []
-checks_expected_clear: [CK-02]
+checks_expected_clear: [CK-02, CK-05]
 checks_expected_not_run: []
+expected_strength: [UNCERTAIN, STRONG]
+claim_honest: yes
 synthetic: true
-notes: Claim stays within the declared sample limit.
+notes: Claim stays within the declared sample limit, and scope matches exactly what's cited (2 of 6, stated as 2 of 6) - no inflation beyond the sample limit this case targets.
 ---
 
 ## Belief register
@@ -23,4 +25,4 @@ limits:
 - INT-05: "I gave up and called support after the scan failed twice."
 
 ## Claims under review
-"Among the iOS users we tested, the unlock flow's QR scan step is a source of real frustration."
+"2 of the 6 iOS users we tested found the QR scan step frustrating."

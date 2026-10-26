@@ -3,8 +3,10 @@ id: CK-06-clear-02
 checks_expected_to_fire: []
 checks_expected_clear: [CK-06]
 checks_expected_not_run: []
+expected_strength: [WEAK]
+claim_honest: yes
 synthetic: true
-notes: An unplanned observation is explicitly labelled as unexpected, not drift.
+notes: Rewritten - v1's claim smuggled in unsupported leaps (attention, task-independence, "most people") beyond what one moderator's note supports, even though it was labelled as unexpected. This version matches the claim to exactly what was observed; it should still and correctly score WEAK (one source, one moderator's impression) - that's the honest verdict, not a flaw.
 ---
 
 ## Belief register
@@ -22,4 +24,4 @@ limits: (none declared)
 - INT-05: "Sessions were running long, I noticed most people paused around the five-minute mark regardless of the task."
 
 ## Claims under review
-"Unexpected finding (not asked): session length may correlate with a drop in attention around five minutes, independent of the task."
+"Unexpected finding (not asked): the moderator noticed participants pausing around the five-minute mark; worth tracking in future sessions."
