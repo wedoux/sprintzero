@@ -66,3 +66,73 @@
   - CK-04: expected CLEAR, got not detected
   - CK-02: expected NOT RUN, got not detected
   - CK-06: expected NOT RUN, got not detected
+
+## 2026-10-26 — target=skill version=e47326f model=claude-opus-4-7
+- Cases run: 28
+- CK-ID score: 0/28 (regex-matched FIRES/CLEAR/NOT RUN against front matter)
+- Strength score: 16/25 (fire cases not rated STRONG, clear cases not rated WEAK; 3 NR case(s) excluded, not applicable)
+- P-codes detected across all cases (v1.0 has no CK support; partial credit only): P-04
+- Raw readouts: runs/2026-10-26-skill-e47326f/
+
+- **CK-01-clear-01**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-01: expected CLEAR, got not detected
+- **CK-01-clear-02**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-01: expected CLEAR, got not detected
+- **CK-01-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-01: expected FIRES, got not detected
+- **CK-01-fire-02**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-01: expected FIRES, got not detected
+- **CK-02-clear-01**: CK=FAIL · STRENGTH=PASS (UNCERTAIN)
+  - CK-02: expected CLEAR, got not detected
+- **CK-02-clear-02**: CK=FAIL · STRENGTH=FAIL (not detected)
+  - CK-02: expected CLEAR, got not detected
+- **CK-02-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-02: expected FIRES, got not detected
+- **CK-02-fire-02**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-02: expected FIRES, got not detected
+- **CK-03-clear-01**: CK=FAIL · STRENGTH=PASS (UNCERTAIN)
+  - CK-03: expected CLEAR, got not detected
+- **CK-03-clear-02**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-03: expected CLEAR, got not detected
+- **CK-03-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-03: expected FIRES, got not detected
+- **CK-03-fire-02**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-03: expected FIRES, got not detected
+- **CK-04-clear-01**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-04: expected CLEAR, got not detected
+- **CK-04-clear-02**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-04: expected CLEAR, got not detected
+- **CK-04-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-04: expected FIRES, got not detected
+- **CK-04-fire-02**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-04: expected FIRES, got not detected
+- **CK-05-clear-01**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-05: expected CLEAR, got not detected
+- **CK-05-clear-02**: CK=FAIL · STRENGTH=PASS (STRONG)
+  - CK-05: expected CLEAR, got not detected
+- **CK-05-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-05: expected FIRES, got not detected
+- **CK-05-fire-02**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-05: expected FIRES, got not detected
+- **CK-06-clear-01**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-06: expected CLEAR, got not detected
+- **CK-06-clear-02**: CK=FAIL · STRENGTH=FAIL (WEAK)
+  - CK-06: expected CLEAR, got not detected
+- **CK-06-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-06: expected FIRES, got not detected
+- **CK-06-fire-02**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-06: expected FIRES, got not detected
+- **NR-01**: CK=FAIL · STRENGTH=N/A (WEAK)
+  - CK-01: expected NOT RUN, got not detected
+  - CK-04: expected NOT RUN, got not detected
+- **NR-02**: CK=FAIL · STRENGTH=N/A (WEAK)
+  - CK-02: expected NOT RUN, got not detected
+- **NR-03**: CK=FAIL · STRENGTH=N/A (WEAK)
+  - CK-06: expected NOT RUN, got not detected
+- **WU-baseline-01**: CK=FAIL · STRENGTH=PASS (WEAK)
+  - CK-01: expected FIRES, got not detected
+  - CK-05: expected FIRES, got not detected
+  - CK-03: expected CLEAR, got not detected
+  - CK-04: expected CLEAR, got not detected
+  - CK-02: expected NOT RUN, got not detected
+  - CK-06: expected NOT RUN, got not detected
