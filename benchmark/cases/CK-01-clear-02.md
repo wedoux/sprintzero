@@ -6,11 +6,13 @@ checks_expected_not_run: []
 expected_strength: [WEAK]
 claim_honest: no
 synthetic: true
-notes: An authority's opinion is mentioned only as framing; the real support is two cited evidence units.
+notes: An authority's opinion is mentioned only as framing; the real support is two cited evidence units. Belief register added before the R1 run so part (a) has its input (a register-less case can only be NOT RUN); gold labels unchanged.
 ---
 
 ## Belief register
-(none declared)
+| id | belief | about | confidence | rationale | source_type | source_ref | agreed_by_all | dissent_note |
+|---|---|---|---|---|---|---|---|---|
+| B-01 | Dark mode matters to our users. | people | high | Our founder has said so since launch. | authority | | no | Design lead wants usage data before treating it as settled. |
 
 ## Study record
 (none declared)
