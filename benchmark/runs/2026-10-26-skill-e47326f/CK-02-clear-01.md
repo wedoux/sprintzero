@@ -1,59 +1,43 @@
-I'll run the QA workflow on this. Let me track progress:
+## Finding: "2 of the 6 iOS users we tested found the QR scan step frustrating."
 
-```
-QA Progress:
-- [x] Step 1: Confirm there's a conclusion to evaluate
-- [ ] Step 2: Provenance pass
-- [ ] Step 3: Falsification pass
-- [ ] Step 4: Pitfalls check
-- [ ] Step 5: Produce the readout
-```
-
-**Note on self-review:** I'm reviewing material pasted into a fresh conversation, not something I just produced — so the self-grading concern doesn't apply here. Good.
-
-**Step 1 — Conclusion exists?** Yes. There's one claim under review, scoped explicitly to iOS users tested.
-
-Working through steps 2–4 now, then the readout.
-
----
-
-## Finding: "Among the iOS users we tested, the unlock flow's QR scan step is a source of real frustration."
-
-**Evidence strength: UNCERTAIN**
-The claim is unusually well-scoped — it doesn't overreach to Android or to iOS-users-in-general — but it rests on 2 of 6 participants, which is a thin base for calling something a "source of real frustration" even within the tested group. The direction of the signal is plausible; the strength label needs softening.
+**Evidence strength: STRONG**
+The claim is tightly scoped to exactly what was observed, in exactly the population tested, with the count matching the cited evidence — this is an unusually clean claim for QA to review.
 
 ### Provenance
 
 | Claim | Source | Observed or inferred | Traceable? |
 |---|---|---|---|
-| QR scan step causes frustration | INT-02 ("took three tries to line up"), INT-05 ("gave up and called support after the scan failed twice") | Observed (both participants describe concrete failure events; "frustration" is a light inference from "gave up" and repeated retries) | Yes |
-| This applies to "iOS users we tested" as a group | INT-02 and INT-05 only; INT-01, INT-03, INT-04, INT-06 are silent in the evidence provided | Inferred — and the inference is from 2/6, with the other 4 unaccounted for in the excerpt | Partially |
+| 2 of 6 iOS users | INT-02, INT-05 (2 of 6 sessions) | Observed | Yes |
+| Users were iOS | Study record: "iOS TestFlight users only (INT-01 to INT-06)" | Observed | Yes |
+| QR scan step specifically | INT-02 ("QR scanner took three tries"), INT-05 ("the scan failed twice") | Observed | Yes |
+| "Frustrating" characterisation | INT-02 (three tries to line up), INT-05 (gave up and called support) | Inferred — reasonable inference from behaviour and abandonment, but neither participant used the word "frustrating" | Yes, but flagged |
 
-The second row is the issue. The claim is scoped to "iOS users we tested" (all 6), but the evidence shown covers 2 of them. The other 4 sessions may contain supporting, contradicting, or neutral data — none of it is in the material provided. The synthesis is treating silence from 4 participants as consistent with the finding, when it could equally be inconsistent.
+Minor note on the "frustrating" label: neither quote uses that word. The inference is reasonable (repeated failed attempts + one abandonment-to-support is behavioural evidence of friction), but a stricter phrasing — "experienced repeated scan failures" or "had difficulty with the QR scan step" — would stay closer to what was observed. Not a blocking issue; worth noting for the writeup.
 
 ### Falsification pass
-
-- **Strongest counter-hypothesis:** The 4 un-quoted participants completed the QR scan without issue, in which case the honest finding is "2 of 6 iOS testers hit QR scan friction" — a minority signal, not a characterization of the group's experience. A second counter-hypothesis: INT-02 and INT-05 may have had device-specific issues (older iPhone, cracked camera, poor lighting in the session) rather than a flow problem, which the excerpts don't let us rule out.
-- **What would overturn this finding:** Evidence from INT-01, INT-03, INT-04, INT-06 showing they scanned successfully on the first try without friction would reduce this to a 2/6 minority experience. Session metadata showing INT-02 and INT-05 had unusual device or environmental conditions would reframe it as device/context issue rather than flow issue.
-- **Where the evidence underdetermines the claim:** We have no information about 4 of the 6 sessions. The claim's generality ("iOS users we tested") outruns the shown evidence (2 participants) by a factor of 3.
+- **Strongest counter-hypothesis:** The friction described isn't about the QR *step* in the flow but about QR scanning as a general phone-camera interaction (lighting, sticker condition, camera autofocus). Under this reading, redesigning the unlock screen wouldn't help — the problem lives in the physical scan target or the camera handoff, not the UI. The evidence is compatible with both readings and doesn't distinguish them.
+- **What would overturn this finding:** Session recordings or notes showing INT-02 and INT-05's difficulty was caused by something upstream or downstream of the QR step (e.g., they couldn't find the scan button, or the scan succeeded but a subsequent screen failed). As written, the claim is modest enough that it's hard to overturn outright — but it could be made more or less decision-relevant by clarifying *where* in the flow the friction sat.
+- **Where the evidence underdetermines the claim:** The claim itself is well-supported. What it *cannot* support — and correctly doesn't try to — is any statement about Android users, about iOS users outside TestFlight, about frequency across the broader user base, or about whether a UI redesign (versus a scan-target or camera-handoff fix) is the right intervention. The study record's `cannot_claim` on Android is honoured.
 
 ### Pitfalls checked
 
 | Pitfall | Triggered? | What triggered it |
 |---|---|---|
-| P-01 Headline Generality | No | The finding names a specific step (QR scan), a specific behaviour (retries, abandonment to support), and points at a specific decision (redesign the QR-unlock screen). It passes the "any other product" test. |
-| P-02 Context Blindness | No (with caveat) | No prior research is declared in the study record, so there's nothing to contradict or confirm. I don't have visibility into whether prior research exists; flagging this for the researcher to confirm. |
-| P-03 Transcript Literalism | Yes, mildly | Both quotes describe outcomes (retries, giving up) but not what the participants were doing with their hands, how the lighting was, whether they'd used QR scanners before, or whether they expressed frustration verbally in the moment. A researcher who ran the sessions likely knows whether this was "mild annoyance" or "flow-breaking rage" — the text alone can't distinguish. |
-| P-04 Volume Mistaken for Strength | Yes | 2 quotes from 2 participants in 1 source type (moderated sessions) is being used to support a claim about the tested group. Even scoped carefully, this is one source type and a minority of participants. The verdict should reflect that. |
-| P-05 Counter-Evidence Filed, Not Faced | Can't fully assess | The synthesis doesn't name any counter-signals from INT-01/03/04/06. Either there are none (in which case say so) or they weren't reviewed (in which case the finding is premature). The absence of a "4 others completed without issue" statement is itself a gap. |
-| P-06 Formulaic Transfer Hedge | No | The scope limitation (Android not tested) is stated as a hard boundary in `limits`, not smuggled into the finding as a decorative hedge. This is handled correctly. |
-| P-07 Trust Without Process | No | The finding is a plain-language claim, not a classification needing derivation. |
-| P-08 Narrowing Sold as Resolving | Borderline | The finding supports "investigate the QR scan step" — not "redesign will fix the problem." The decision being informed ("whether to redesign") is appropriately investigative. But if the team reads this as a green light to redesign without first checking whether the 4 silent participants had issues, that would cross into P-08 territory. Worth flagging to the decision-maker. |
+| P-01 Headline Generality | No | The claim names a specific behaviour (QR scan difficulty), in a specific step, in a specific population, with a specific count. It would not read the same about any other product. |
+| P-02 Context Blindness | No (with caveat) | No prior research was supplied in the study record, so there's nothing to check against. If prior unlock-flow research exists, the team should cross-reference it — flagging this as a visibility gap rather than a failure of the synthesis. |
+| P-03 Transcript Literalism | No | The claim stays within what the quotes support and doesn't over-read tone or intent. The "frustrating" label is a mild inference (see provenance note) but not a transcript-literalism failure. |
+| P-04 Volume Mistaken for Strength | No | The claim explicitly says "2 of the 6" — it does not inflate two data points into a strong pattern. The denominator is visible. |
+| P-05 Counter-Evidence Filed, Not Faced | No | No counter-evidence was supplied in the evidence set, and the claim doesn't gesture at any it then ignores. The other 4 sessions aren't characterised one way or the other, which is appropriate given no quotes from them were provided. |
+| P-06 Formulaic Transfer Hedge | No | The claim is explicitly scoped to "the 6 iOS users we tested" and makes no transfer claim to Android, to non-TestFlight iOS users, or to the broader population. The study record's `cannot_claim` is respected. |
+| P-07 Trust Without Process | No | The claim's reasoning is visible: 2 users (named: INT-02, INT-05) described specific scan failures, out of 6 tested. The arithmetic and the attribution are both auditable. |
+| P-08 Narrowing Sold as Resolving | No | The claim describes what was observed; it does not assert that redesigning the QR-unlock screen will fix the issue, nor that the QR step is definitively the right place to intervene. The decision the study informs ("whether to redesign the QR-unlock screen") remains open — the finding narrows the search space without overclaiming resolution. |
 
 ### What would change this verdict
+The single most useful next piece of evidence: notes or recordings clarifying *where* in the scan interaction INT-02 and INT-05's difficulty originated — the on-screen UI, the camera handoff, or the physical QR target. The current claim is well-supported as stated, but the decision it informs (redesign the unlock screen, yes/no) depends on whether the UI is actually the lever. Two users struggling with a QR scan is consistent with a UI problem *and* with a non-UI problem; the current evidence doesn't distinguish them.
 
-A single sentence per participant about whether INT-01, INT-03, INT-04, and INT-06 experienced QR scan friction. If 0 of them did, this becomes a 2/6 minority finding and the "source of real frustration" framing is too strong. If 2+ of them did, this becomes STRONG and the current wording is justified. Without this, the finding is UNCERTAIN not because the signal is wrong but because the denominator is hidden.
+### Tacit-knowledge prompt (optional — ask only if a researcher who ran the sessions is available)
+For INT-02 and INT-05 specifically: in the moment of difficulty, were they struggling to frame the QR code in the camera viewfinder (suggesting a target/lighting/camera issue), or were they confused about what the screen was asking them to do (suggesting a UI issue)? A sentence of recall on either session would materially change how actionable this finding is for the redesign decision.
 
-### Tacit-knowledge prompt
+---
 
-For the researcher who moderated the sessions: Among INT-01, INT-03, INT-04, and INT-06, did any of them visibly struggle with the QR scan — pausing, repositioning the phone, muttering, retrying — even if they didn't comment on it afterward? And for INT-02 and INT-05 specifically, was there anything about their device, lighting, or physical setup that might have made the scan harder than it would be in typical use?
+**Overall note on this QA pass:** This is a case where a careful pass genuinely finds very little to flag. The claim is modestly scoped, numerically honest, population-bounded, and doesn't overreach into the decision it informs. The only substantive notes are (1) the mild inference in the word "frustrating" and (2) the open question of *where* in the scan interaction the friction sat — which is a question for the next study, not a flaw in this one.

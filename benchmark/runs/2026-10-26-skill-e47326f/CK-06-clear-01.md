@@ -1,60 +1,46 @@
-I'll run the QA pass. Before I do: **in a real workflow, this would be best run in a fresh conversation** if the synthesis was produced earlier in this one. Proceeding here since the synthesis was supplied directly.
+## Finding: "5 of 6 participants did not notice the new filter button without being prompted."
 
-```
-QA Progress:
-- [x] Step 1: Confirm there's a conclusion to evaluate (not raw notes)
-- [x] Step 2: Provenance pass — trace every claim to evidence
-- [x] Step 3: Falsification pass — try to break each conclusion
-- [x] Step 4: Pitfalls check — screen against references/pitfalls.md
-- [x] Step 5: Produce the readout using templates/readout.md
-```
-
----
-
-## Finding: "Most participants did not notice the new filter button without being prompted."
-
-**Evidence strength: WEAK**
-The claim generalises to "most participants" (implying a majority of the six-session study) but only two participants are actually cited as evidence. Four of six sessions are unaccounted for in the synthesis — the quantifier is not supported by the material provided.
+**Evidence strength: STRONG**
+The claim is a direct count of what participants said in the sessions, and the count checks out — five of six transcripts show non-discovery without prompting, one shows unprompted discovery. This is about as cleanly evidenced as a six-session discoverability finding gets, within the limits of that sample size.
 
 ### Provenance
-
 | Claim | Source | Observed or inferred | Traceable? |
 |---|---|---|---|
-| Participants did not notice the filter button | INT-01 ("I didn't see a way to filter until you pointed at it") | Observed | Yes |
-| Participants did not notice the filter button | INT-04 ("Took me a while to spot the filter icon…") | Inferred — INT-04 did eventually spot it unaided ("took me a while to spot"), which is not the same as "did not notice without being prompted" | Partial — the quote supports "slow to notice," not "did not notice without prompting" |
-| **"Most"** participants exhibited this behaviour | No evidence cited for INT-02, INT-03, INT-05, INT-06 | Unsupported | **No** — the quantifier has no provenance |
+| INT-01 did not notice without prompting | "I didn't see a way to filter until you pointed at it." | Observed | Yes |
+| INT-02 did not notice without prompting | "I never noticed there was a filter option, had no idea it existed." | Observed | Yes |
+| INT-03 did not notice without prompting (found by accident late in task) | "Took me the whole task to realize I could filter - found it by accident." | Observed | Yes |
+| INT-04 did not notice without prompting | "Didn't see it, I was looking at the top of the screen the whole time." | Observed | Yes |
+| INT-05 did not notice without prompting | "I spotted it eventually but only because I was told something was there." | Observed | Yes |
+| INT-06 did notice without prompting | "Saw it right away, it's in a pretty obvious spot." | Observed | Yes |
 
-The headline claim rests on one clean supporting quote (INT-01), one quote that arguably contradicts the "did not notice without prompting" framing (INT-04 noticed it unaided, just slowly), and silence on four of six sessions.
+One small note on INT-03: "found it by accident" is non-discovery of the intended, unprompted kind — the participant was not told, but also did not discover it through the designed affordance. Classifying this as "did not notice without being prompted" is defensible but worth naming explicitly rather than silently rolling in. The 5-of-6 count holds under either reading, because even if INT-03 were reclassified as a discovery, it would be 4-of-6, which doesn't change the qualitative verdict.
 
 ### Falsification pass
-
-- **Strongest counter-hypothesis:** The four uncited participants (INT-02, INT-03, INT-05, INT-06) noticed the filter button without difficulty, and the synthesis is generalising from the two who struggled. With a 2/6 base rate, "most participants did not notice" would be straightforwardly false.
-- **What would overturn this finding:** Evidence from INT-02, INT-03, INT-05, and INT-06 showing they noticed the button unaided. Even one or two such cases would flip "most" to "some" or "a minority."
-- **Where the evidence underdetermines the claim:** Four of six sessions are entirely absent from the synthesis. We cannot distinguish "the researcher cited the two most representative cases" from "the researcher cited the only two supporting cases." Without the other four, the quantifier is unknowable from this material.
+- **Strongest counter-hypothesis:** The sessions share a moderator, a task framing, and likely a device/screen configuration. If participants were all primed by the same task wording to look somewhere specific (e.g., INT-04: "I was looking at the top of the screen the whole time"), the finding may be about task framing driving attention away from the filter, not about the button being undiscoverable in realistic use. The claim as stated is still true of this study, but its implication for the redesign decision depends on whether the task mirrored real usage.
+- **What would overturn this finding:** A session recording review showing the moderator (or task script) directed attention away from where the filter sits — or analytics from live product showing filter-use rates inconsistent with a 1-in-6 discovery rate.
+- **Where the evidence underdetermines the claim:** The finding as literally stated ("5 of 6 did not notice") is fully determined by the evidence. What it underdetermines is any step beyond that — e.g., "the filter button is undiscoverable" or "the entry point needs redesign." Six participants is enough to raise a strong flag, not enough to characterise the discovery rate with precision.
 
 ### Pitfalls checked
 
 | Pitfall | Triggered? | What triggered it |
 |---|---|---|
-| P-01 Headline Generality | No | The finding names a specific behaviour (noticing the button), a specific trigger (unprompted encounter), and a specific consequence (points at the redesign decision). |
-| P-02 Context Blindness | No (insufficient info) | No prior research declared in the study record; cannot assess. |
-| P-03 Transcript Literalism | Yes — mild | The INT-04 quote ("took me a while to spot") contains a tacit signal the synthesis flattens: INT-04 *did* spot it unaided. A researcher in the room would know whether that counts as "noticed" or "didn't notice." The synthesis treats it as supporting evidence without resolving this. |
-| P-04 Volume Mistaken for Strength | Partial | Not the classic form (all evidence is one source type here — moderated sessions — but that's the whole study design). The real issue is that 2 of 6 units are being presented as if they represent all 6. |
-| P-05 Counter-Evidence Filed, Not Faced | Yes | The four unmentioned sessions are the counter-evidence — their silence is itself a signal. The synthesis doesn't acknowledge they exist, let alone argue why they don't change the verdict. |
-| P-06 Formulaic Transfer Hedge | No | No transfer claim made. |
-| P-07 Trust Without Process | Yes | The jump from "two participants struggled" to "most participants did not notice" is asserted, not derived. No reasoning is shown for why these two cases generalise to the majority. |
-| P-08 Narrowing Sold as Resolving | No | No causal fix claim is being made. |
+| P-01 Headline Generality | No | The claim names a specific observable (noticing the filter button), a specific condition (without being prompted), and a specific count. It's not a label like "filter is confusing" — it's a behavioural count. |
+| P-02 Context Blindness | No | No prior research is referenced in the study record, and none is declared. Flagging this would require knowing prior work exists; nothing in the record suggests it does. If the team has prior discoverability research on this surface, that should be checked, but it's not a defect in the claim as submitted. |
+| P-03 Transcript Literalism | No (with a caveat) | The claim is a count of stated non-discovery, which the transcripts support directly. The caveat is that *downstream* claims built on this finding (e.g., "the button needs to move") would benefit from a researcher's read on whether non-discovery looked like genuine not-seeing-it versus seeing-it-and-dismissing-it. For the literal count under review, the transcripts are sufficient. |
+| P-04 Volume Mistaken for Strength | No | Six moderated sessions is a single source type, which would normally argue for discounting confidence. But the claim is scoped to exactly that source — "5 of 6 participants" — not generalised to "users" at large. The verdict is strong *for the claim as stated*. If the claim were rewritten as "users don't notice the filter button," P-04 would fire hard. |
+| P-05 Counter-Evidence Filed, Not Faced | No | INT-06 is the counter-signal, and the claim faces it directly by including it in the denominator ("5 of 6," not "participants"). The counter is in the count, not filed off to the side. |
+| P-06 Formulaic Transfer Hedge | No | No transfer claim is made — the finding is scoped to the study participants. |
+| P-07 Trust Without Process | No | The verdict is a count; the reasoning is the count. Reconstruction is trivial. |
+| P-08 Narrowing Sold as Resolving | No | The claim doesn't assert a fix or a cause — it describes a behaviour. A reader could overreach from here (e.g., "move the button and the problem is solved"), but the claim itself doesn't. |
 
 ### What would change this verdict
-
-The behaviour of the four uncited participants (INT-02, INT-03, INT-05, INT-06). Either:
-- Quotes or observations showing they also failed to notice the button unaided → verdict moves toward STRONG, and "most" becomes defensible.
-- Evidence they noticed it fine → the finding needs to be rewritten as "2 of 6 participants struggled to notice the filter button," which is a different and much weaker claim about the redesign decision.
+The claim as written is well-evidenced; nothing would meaningfully change it short of discovering that the transcripts were misquoted. What would change the *usefulness* of this finding for the redesign decision is one of:
+- A quick check on whether the task framing drew attention away from the filter's location (if so, the discovery rate in realistic use may differ from 5-of-6).
+- Live analytics on filter engagement, if available, as an independent corroboration.
 
 ### Tacit-knowledge prompt
-
-For the researcher who ran the sessions: in INT-02, INT-03, INT-05, and INT-06 — did those participants notice the filter button unaided, and if so, roughly how quickly? And for INT-04 specifically: when they said "took me a while to spot," would you classify that as noticing-unaided-but-slowly, or as effectively not noticing until the task forced the issue? The headline "most did not notice without prompting" depends entirely on how those five judgment calls go.
+For INT-03 and INT-04 specifically: did their non-discovery look like the filter was in a blind spot (eye-tracking-style — never looked there), or like they looked near it and didn't register it as a filter control? Those two patterns point at different redesign responses (move it vs. restyle it), and the transcripts don't distinguish between them.
 
 ---
 
-**Summary for the decision-maker:** The underlying signal (some users struggle with filter discoverability) may well be real, but the finding as written overstates it. "Most participants" is not supported by the two cited quotes, and one of those two quotes (INT-04) arguably contradicts the "without being prompted" framing. Before this drives a redesign decision, the synthesis needs to either cite the other four sessions or weaken the quantifier.
+**One meta-note on this QA pass:** this is an unusually clean claim to review — a direct, scoped, numerical count against six short transcripts that all contain the relevant statement. The adversarial posture this skill applies by default didn't surface a real defect, and I want to flag that honestly rather than manufacture one. If the claim under review were instead "the filter button is undiscoverable" or "users can't find filters," several pitfalls would fire; the discipline of scoping the claim to "5 of 6 participants in this study" is what makes it hold up.
