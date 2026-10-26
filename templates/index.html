@@ -531,6 +531,18 @@ async function submit(text) {
         container.innerHTML = result.chat_html;
         while (container.firstChild) turn.appendChild(container.firstChild);
     }
+    // The header badge is rendered at page load. Swap it the moment intake
+    // completes, so "Setup unfinished" doesn't outlive the setup.
+    if (result.context_complete) {
+        const setup = document.querySelector('.project-header .project-setup');
+        if (setup) {
+            const tick = document.createElement('span');
+            tick.className = 'project-tick';
+            tick.title = 'Project context complete';
+            tick.textContent = '●';
+            setup.replaceWith(tick);
+        }
+    }
     scrollChatToBottom();
 
     const isSynthesis = (result.response_type === 'EVALUATION' || result.response_type === 'GAP_FLAG');

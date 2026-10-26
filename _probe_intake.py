@@ -157,6 +157,16 @@ if state.missing_context_fields(after):
 print(f"3. completion: complete={state.context_is_complete(after)} "
       f"missing={state.missing_context_fields(after)}")
 
+# The completing turn must say it completed. It used to repeat "intake
+# required" over an empty pane, so a finished setup looked stuck.
+if done is not None:
+    if "Project setup complete" not in (done.get("chat_html") or ""):
+        violations.append("COMPLETION UI: the completing turn did not say setup is complete.")
+    if "Ready to evaluate" not in (done.get("right_pane_html") or ""):
+        violations.append("COMPLETION UI: the right pane did not confirm the project is ready.")
+    if done.get("context_complete") is not True:
+        violations.append("COMPLETION UI: done did not report context_complete, so the header badge stays stale.")
+
 # The next query must now be a synthesis, not another interview.
 text = blocks_text(after)
 if SUPPRESSION not in text or INSTRUCTION in text:
@@ -181,8 +191,18 @@ PARTIAL_RESPONSE = INTAKE_RESPONSE.replace(
     "<research_objective>Whether onboarding drop-off is comprehension or trust.</research_objective>",
     "<research_objective></research_objective>",
 )
-post_ask(partial["project_id"], PARTIAL_RESPONSE)
+partial_events = post_ask(partial["project_id"], PARTIAL_RESPONSE)
+partial_done = next((p for n, p in partial_events if n == "done"), None) or {}
 after_partial = state.load_project(partial["project_id"])
+# The chat message promises the open fields are in the right pane; they must be.
+pane = partial_done.get("right_pane_html") or ""
+for label in ("Target market", "Decisions pending"):
+    if label not in pane:
+        violations.append(f"INTAKE UI: the right pane does not list the missing field {label!r}.")
+if "No analysis to display" in pane:
+    violations.append("INTAKE UI: the right pane still shows the empty clarification state.")
+if partial_done.get("context_complete") is not False:
+    violations.append("INTAKE UI: done reported an incomplete project as complete.")
 if state.context_is_complete(after_partial):
     violations.append(
         "PARTIAL INTAKE: a response that did not claim COMPLETE marked the "

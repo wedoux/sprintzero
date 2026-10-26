@@ -30,12 +30,18 @@
   {% endif %}
 
 {% elif response_type == 'INTAKE' %}
+  {% if intake_complete %}
+  <div class="sys-msg sys-msg-options">
+    <div class="sys-msg-label">Project setup complete</div>
+    <div class="sys-msg-body">Thanks, that completes the project context. Submit your theme again and it will be evaluated.</div>
+  </div>
+  {% else %}
+  {% set n = (intake_missing or [])|length %}
   <div class="sys-msg sys-msg-challenge">
     <div class="sys-msg-label">Project intake required</div>
-    <div class="sys-msg-body">
-      Before evaluating themes, I need a few details about this project. Right pane shows the open intake fields; please answer them in your next message.
-    </div>
+    <div class="sys-msg-body">Before evaluating themes, I need {{ n if n else 'a few' }} more detail{{ '' if n == 1 else 's' }} about this project. The right pane lists {{ 'it' if n == 1 else 'them' }} with why each matters; answer in your next message.</div>
   </div>
+  {% endif %}
 
 {% elif response_type in ('EVALUATION', 'GAP_FLAG') %}
   {% set tkp = root.find('tacit_knowledge_prompt') %}

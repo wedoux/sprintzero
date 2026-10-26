@@ -33,7 +33,52 @@
     <pre class="raw">{{ raw_answer }}</pre>
   </div>
 
-{% elif response_type in ('CHALLENGE', 'INTAKE') %}
+{% elif response_type == 'INTAKE' %}
+  {# The chat message points here, so this pane has to carry the questions.
+     It lists what is still missing, with the reason each field matters (from
+     the intake protocol), then what is already captured. The turn that
+     completes intake says so, instead of repeating the request. #}
+  {% set guide = {
+    'project_name': ('Project name', 'The working title every verdict is filed under.'),
+    'project_type': ('Project type', 'New product, redesign or iteration. It decides whether findings are discovery, validation or contradiction of what the team already knows.'),
+    'research_objective': ('Research objective', 'Scopes what counts as relevant evidence. Without it no verdict can be judged for decision relevance.'),
+    'business_decisions_pending': ('Decisions pending', 'The product or business decisions waiting on this research. Every verdict is framed against them.'),
+    'target_market': ('Target market', 'Who the users are. Findings that move beyond this population get flagged as transfer assumptions.'),
+    'known_constraints': ('Known constraints', 'Optional. Capacity, regulation or timing that limits what a verdict can recommend.'),
+    'primary_stakeholder': ('Primary stakeholder', 'Optional. Who acts on the verdict, which shapes how decision support is framed.'),
+    'prior_research_and_insights': ('Prior research', 'Optional. What the team already believes, so contradictions can be flagged.'),
+  } %}
+  {% set missing = intake_missing or [] %}
+  {% set ctx = intake_context or {} %}
+  <div class="empty-pane">
+    {% if intake_complete %}
+    <p class="empty-kicker">Project setup complete</p>
+    <h2 class="empty-title">Ready to evaluate</h2>
+    <p class="empty-lede">The project context below is stored and goes with every query. Submit your theme again on the left to get a verdict.</p>
+    {% else %}
+    <p class="empty-kicker">Setup unfinished</p>
+    <h2 class="empty-title">{{ missing|length }} detail{{ '' if missing|length == 1 else 's' }} before the first verdict</h2>
+    <p class="empty-lede">Answer in the chat, in one message. Label each answer with the field name so nothing is misread.</p>
+    {% endif %}
+    <ol class="empty-spine">
+      {% for key in missing %}
+      <li class="empty-spine-row is-lead">
+        <span class="empty-spine-name">{{ guide.get(key, (key, ''))[0] }}</span>
+        <span class="empty-spine-note">{{ guide.get(key, (key, ''))[1] }}</span>
+      </li>
+      {% endfor %}
+      {% for key, pair in guide.items() %}
+      {% if key not in missing and (ctx.get(key) or '')|trim %}
+      <li class="empty-spine-row">
+        <span class="empty-spine-name">{{ pair[0] }}</span>
+        <span class="empty-spine-note">{{ ctx.get(key)|truncate(160) }}</span>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ol>
+  </div>
+
+{% elif response_type == 'CHALLENGE' %}
   {# Stable layout: empty state, NOT a collapsed/full-width lurch.
      This turn is a clarification — the documentary surface intentionally has nothing to show. #}
   <div class="empty-pane">
