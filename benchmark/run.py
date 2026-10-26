@@ -35,9 +35,18 @@ import re
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import credentials
 import model_client
+
+# Same convention as app.py: a .env at the repo root works in development.
+# Without this, credentials.resolve() would fall through to the macOS
+# Keychain, whose GUI authorization prompt a non-interactive run can never
+# answer - that's a hang, not a failure, and it costs nothing to hit because
+# no request has gone out yet. Load the obvious source first.
+load_dotenv()
 
 BENCH_DIR = Path(__file__).resolve().parent
 CASES_DIR = BENCH_DIR / "cases"
@@ -243,15 +252,40 @@ def main():
     import anthropic
     client = anthropic.Anthropic(api_key=api_key)
 
+    # A result is written for every case attempted, even if a later case
+    # errors out - an uncaught exception here used to lose every prior
+    # live call's result along with it, which is a worse outcome than the
+    # error itself: it throws away money already spent along with the
+    # evidence of what it bought.
     results = []
+    stop_early = False
     for front, body in cases:
-        readout = call_live_model(client, system_prompt, body, args.model)
+        try:
+            readout = call_live_model(client, system_prompt, body, args.model)
+        except Exception as exc:
+            results.append((front["id"], [f"ERROR: {exc}"], []))
+            print(f"  {front['id']}: ERROR ({exc})")
+            # A quota/rate-limit error will reject every subsequent call
+            # identically - stop rather than spend the printed estimate
+            # again for nothing.
+            msg = str(exc).lower()
+            if "usage limit" in msg or "rate_limit" in msg or "429" in msg:
+                print("  Stopping: this looks account-level, not case-specific "
+                      "- further calls would fail the same way.")
+                stop_early = True
+                break
+            continue
         found = parse_readout(readout)
         violations, p_codes = score_case(front, found)
         results.append((front["id"], violations, p_codes))
-        print(f"  {front['id']}: {'FAIL' if violations else 'PASS'}")
+        print(f"  {front['id']}: {'FAIL' if violations else 'PASS'} "
+              f"(P-codes detected: {', '.join(p_codes) or 'none'})")
 
-    report(results, target="skill", version=args.skill_path, model=args.model)
+    report(results, target="skill",
+           version=args.skill_path + (" (STOPPED EARLY)" if stop_early else ""),
+           model=args.model)
+    if stop_early:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
