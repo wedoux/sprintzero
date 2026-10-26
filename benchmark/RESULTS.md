@@ -1,0 +1,68 @@
+
+## 2026-10-26 — target=skill version=../ux-research-qa model=claude-opus-4-7
+- Cases run: 28
+- Cases with violations: 28
+- P-codes detected across all cases (v1.0 has no CK support; partial credit only): P-01, P-03
+
+- **CK-01-clear-01**: FAIL
+  - CK-01: expected CLEAR, got not detected
+- **CK-01-clear-02**: FAIL
+  - CK-01: expected CLEAR, got not detected
+- **CK-01-fire-01**: FAIL
+  - CK-01: expected FIRES, got not detected
+- **CK-01-fire-02**: FAIL
+  - CK-01: expected FIRES, got not detected
+- **CK-02-clear-01**: FAIL
+  - CK-02: expected CLEAR, got not detected
+- **CK-02-clear-02**: FAIL
+  - CK-02: expected CLEAR, got not detected
+- **CK-02-fire-01**: FAIL
+  - CK-02: expected FIRES, got not detected
+- **CK-02-fire-02**: FAIL
+  - CK-02: expected FIRES, got not detected
+- **CK-03-clear-01**: FAIL
+  - CK-03: expected CLEAR, got not detected
+- **CK-03-clear-02**: FAIL
+  - CK-03: expected CLEAR, got not detected
+- **CK-03-fire-01**: FAIL
+  - CK-03: expected FIRES, got not detected
+- **CK-03-fire-02**: FAIL
+  - CK-03: expected FIRES, got not detected
+- **CK-04-clear-01**: FAIL
+  - CK-04: expected CLEAR, got not detected
+- **CK-04-clear-02**: FAIL
+  - CK-04: expected CLEAR, got not detected
+- **CK-04-fire-01**: FAIL
+  - CK-04: expected FIRES, got not detected
+- **CK-04-fire-02**: FAIL
+  - CK-04: expected FIRES, got not detected
+- **CK-05-clear-01**: FAIL
+  - CK-05: expected CLEAR, got not detected
+- **CK-05-clear-02**: FAIL
+  - CK-05: expected CLEAR, got not detected
+- **CK-05-fire-01**: FAIL
+  - CK-05: expected FIRES, got not detected
+- **CK-05-fire-02**: FAIL
+  - CK-05: expected FIRES, got not detected
+- **CK-06-clear-01**: FAIL
+  - CK-06: expected CLEAR, got not detected
+- **CK-06-clear-02**: FAIL
+  - CK-06: expected CLEAR, got not detected
+- **CK-06-fire-01**: FAIL
+  - CK-06: expected FIRES, got not detected
+- **CK-06-fire-02**: FAIL
+  - CK-06: expected FIRES, got not detected
+- **NR-01**: FAIL
+  - CK-01: expected NOT RUN, got not detected
+  - CK-04: expected NOT RUN, got not detected
+- **NR-02**: FAIL
+  - CK-02: expected NOT RUN, got not detected
+- **NR-03**: FAIL
+  - CK-06: expected NOT RUN, got not detected
+- **WU-baseline-01**: FAIL
+  - CK-01: expected FIRES, got not detected
+  - CK-05: expected FIRES, got not detected
+  - CK-03: expected CLEAR, got not detected
+  - CK-04: expected CLEAR, got not detected
+  - CK-02: expected NOT RUN, got not detected
+  - CK-06: expected NOT RUN, got not detected
