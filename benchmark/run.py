@@ -337,23 +337,37 @@ def score_claim(front, claim_match):
     return claim_match == expected, claim_match
 
 
-def report(results, *, target, version, model, run_dir):
-    date = datetime.date.today().isoformat()
+def score_lines(results, label=""):
     ck_failed = [r for r in results if r[1]]
     scored_on_strength = [r for r in results if r[3] is not None]
     strength_passed = [r for r in scored_on_strength if r[3]]
     claim_passed = [r for r in results if r[5]]
-    all_p_codes = sorted({c for _, _, p, *_ in results for c in p})
-    lines = [
-        f"\n## {date} — target={target} version={version} model={model}",
-        f"- Cases run: {len(results)}",
-        f"- CK-ID score: {len(results) - len(ck_failed)}/{len(results)} "
+    return [
+        f"- Cases run{label}: {len(results)}",
+        f"- CK-ID score{label}: {len(results) - len(ck_failed)}/{len(results)} "
         "(regex-matched FIRES/CLEAR/NOT RUN against front matter)",
-        f"- Strength score: {len(strength_passed)}/{len(scored_on_strength)} "
+        f"- Strength score{label}: {len(strength_passed)}/{len(scored_on_strength)} "
         "(rated within each case's own expected_strength gold label; "
         f"{len(results) - len(scored_on_strength)} NR case(s) excluded, not applicable)",
-        f"- Claim score: {len(claim_passed)}/{len(results)} "
+        f"- Claim score{label}: {len(claim_passed)}/{len(results)} "
         "('Claim matches its evidence' against each case's claim_honest gold label)",
+    ]
+
+
+def report(results, *, target, version, model, run_dir, added_ids=frozenset()):
+    """Cases with `added_in` in their front matter are totalled separately:
+    the seeded 28 stay comparable with the v1 baseline, and the additions
+    (gold labels written before any run) don't shift that comparison."""
+    date = datetime.date.today().isoformat()
+    seeded = [r for r in results if r[0] not in added_ids]
+    added = [r for r in results if r[0] in added_ids]
+    all_p_codes = sorted({c for _, _, p, *_ in results for c in p})
+    lines = [f"\n## {date} — target={target} version={version} model={model}"]
+    lines += score_lines(seeded, " (seeded cases)" if added else "")
+    if added:
+        lines += score_lines(added, " (added since R0)")
+        lines[-4] += f" — {', '.join(r[0] for r in added)}"
+    lines += [
         "- P-codes detected across all cases (v1.0 has no CK support; "
         f"partial credit only): {', '.join(all_p_codes) or 'none'}",
         f"- Raw readouts: {run_dir.relative_to(BENCH_DIR)}/",
@@ -406,6 +420,7 @@ def main():
         sys.exit(2)
 
     cases = load_all_cases()
+    added_ids = {front["id"] for front, _ in cases if front.get("added_in")}
     system_prompt = build_skill_system_prompt(args.skill_path)
     version = get_skill_version(args.skill_path)
     date = datetime.date.today().isoformat()
@@ -422,7 +437,7 @@ def main():
 
     if args.dry_run:
         results = [score_and_save(front, dry_run_readout(front)) for front, body in cases]
-        report(results, target="skill", version=f"{version}-dry-run", model="stub", run_dir=run_dir)
+        report(results, target="skill", version=f"{version}-dry-run", model="stub", run_dir=run_dir, added_ids=added_ids)
         sys.exit(1 if any(v for _, v, *_ in results) else 0)
 
     validate_gold_labels(cases)
@@ -452,7 +467,7 @@ def main():
         print(format_result_line(results[-1]) + f" [re-scored from {args.source_run}]")
 
     if not cases_to_call_live:
-        report(results, target="skill", version=version, model="(rescored only)", run_dir=run_dir)
+        report(results, target="skill", version=version, model="(rescored only)", run_dir=run_dir, added_ids=added_ids)
         return
 
     cost = print_cost_estimate(system_prompt, cases_to_call_live)
@@ -495,7 +510,7 @@ def main():
 
     report(results, target="skill",
            version=version + (" (STOPPED EARLY)" if stop_early else ""),
-           model=args.model, run_dir=run_dir)
+           model=args.model, run_dir=run_dir, added_ids=added_ids)
     if stop_early:
         sys.exit(1)
 

@@ -74,8 +74,14 @@ with tempfile.TemporaryDirectory() as tmp:
 
 # --- 2. Every real case scores clean against its own stub, both axes -------
 cases = bench_run.load_all_cases()
-if len(cases) != 28:
-    violations.append(f"CASE COUNT: expected 28 seeded cases, found {len(cases)}.")
+seeded = [front for front, _ in cases if not front.get("added_in")]
+if len(seeded) != 28:
+    violations.append(f"CASE COUNT: expected 28 seeded cases, found {len(seeded)}.")
+# Additions are scored apart from the seeded 28, and must say their gold
+# labels came first - the fix for R0.2's labels-after-reading problem.
+for front, _ in cases:
+    if front.get("added_in") and "before any run" not in front.get("notes", ""):
+        violations.append(f"ADDED CASE {front['id']}: notes must state gold labels were written before any run.")
 
 for front, _body in cases:
     stub = bench_run.dry_run_readout(front)
