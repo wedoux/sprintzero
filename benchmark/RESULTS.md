@@ -292,3 +292,92 @@ R1 onward, gold labels are written before a case is run.
   - CK-01: expected CLEAR, got not detected
 - **CK-04-fire-01**: CK=FAIL · STRENGTH=PASS (WEAK) · CLAIM=FAIL (not detected)
   - CK-04: expected FIRES, got not detected
+
+## 2026-10-28 — target=skill version=4ba2545-dry-run model=stub
+- Cases run (seeded cases): 28
+- CK-ID score (seeded cases): 28/28 (regex-matched FIRES/CLEAR/NOT RUN against front matter)
+- Strength score (seeded cases): 25/25 (rated within each case's own expected_strength gold label; 3 NR case(s) excluded, not applicable)
+- Claim score (seeded cases): 28/28 ('Claim matches its evidence' against each case's claim_honest gold label)
+- Cases run (added since R0): 2 — CK-01-clear-03, CK-01-fire-03
+- CK-ID score (added since R0): 2/2 (regex-matched FIRES/CLEAR/NOT RUN against front matter)
+- Strength score (added since R0): 2/2 (rated within each case's own expected_strength gold label; 0 NR case(s) excluded, not applicable)
+- Claim score (added since R0): 2/2 ('Claim matches its evidence' against each case's claim_honest gold label)
+- P-codes detected across all cases (v1.0 has no CK support; partial credit only): none
+- Raw readouts: runs/2026-10-28-skill-4ba2545-dry-run/
+
+- **CK-01-clear-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-clear-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-clear-03**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (Yes)
+- **CK-01-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-fire-03**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-02-clear-01**: CK=PASS · STRENGTH=PASS (UNCERTAIN) · CLAIM=PASS (Yes)
+- **CK-02-clear-02**: CK=PASS · STRENGTH=PASS (N/A) · CLAIM=PASS (Yes)
+- **CK-02-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-02-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-03-clear-01**: CK=PASS · STRENGTH=PASS (UNCERTAIN) · CLAIM=PASS (Yes)
+- **CK-03-clear-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (Yes)
+- **CK-03-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-03-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-04-clear-01**: CK=PASS · STRENGTH=PASS (STRONG) · CLAIM=PASS (Yes)
+- **CK-04-clear-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-04-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-04-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-05-clear-01**: CK=PASS · STRENGTH=PASS (UNCERTAIN) · CLAIM=PASS (Yes)
+- **CK-05-clear-02**: CK=PASS · STRENGTH=PASS (STRONG) · CLAIM=PASS (Yes)
+- **CK-05-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-05-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-06-clear-01**: CK=PASS · STRENGTH=PASS (UNCERTAIN) · CLAIM=PASS (Yes)
+- **CK-06-clear-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (Yes)
+- **CK-06-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-06-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **NR-01**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (No)
+- **NR-02**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (Yes)
+- **NR-03**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (Yes)
+- **WU-baseline-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+
+## 2026-10-28 — target=skill version=4ba2545 model=claude-opus-4-7 (intermediate R1 run, scored against the gold labels as they stood before the 2026-10-28 relabel; superseded by the next entry)
+- Cases run (seeded cases): 28
+- CK-ID score (seeded cases): 25/28 (regex-matched FIRES/CLEAR/NOT RUN against front matter)
+- Strength score (seeded cases): 23/25 (rated within each case's own expected_strength gold label; 3 NR case(s) excluded, not applicable)
+- Claim score (seeded cases): 28/28 ('Claim matches its evidence' against each case's claim_honest gold label)
+- Cases run (added since R0): 2 — CK-01-clear-03, CK-01-fire-03
+- CK-ID score (added since R0): 2/2 (regex-matched FIRES/CLEAR/NOT RUN against front matter)
+- Strength score (added since R0): 2/2 (rated within each case's own expected_strength gold label; 0 NR case(s) excluded, not applicable)
+- Claim score (added since R0): 2/2 ('Claim matches its evidence' against each case's claim_honest gold label)
+- P-codes detected across all cases (v1.0 has no CK support; partial credit only): P-04
+- Raw readouts: runs/2026-10-28-skill-4ba2545/
+
+- **CK-01-clear-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-clear-02**: CK=FAIL · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+  - CK-01: expected CLEAR, got FIRES
+- **CK-01-clear-03**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (Yes)
+- **CK-01-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-01-fire-03**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-02-clear-01**: CK=PASS · STRENGTH=FAIL (WEAK) · CLAIM=PASS (Yes)
+- **CK-02-clear-02**: CK=PASS · STRENGTH=FAIL (WEAK) · CLAIM=PASS (Yes)
+- **CK-02-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-02-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-03-clear-01**: CK=PASS · STRENGTH=PASS (UNCERTAIN) · CLAIM=PASS (Yes)
+- **CK-03-clear-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (Yes)
+- **CK-03-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-03-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-04-clear-01**: CK=PASS · STRENGTH=PASS (STRONG) · CLAIM=PASS (Yes)
+- **CK-04-clear-02**: CK=FAIL · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+  - CK-04: expected CLEAR, got FIRES
+- **CK-04-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-04-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-05-clear-01**: CK=PASS · STRENGTH=PASS (STRONG) · CLAIM=PASS (Yes)
+- **CK-05-clear-02**: CK=PASS · STRENGTH=PASS (STRONG) · CLAIM=PASS (Yes)
+- **CK-05-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-05-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-06-clear-01**: CK=PASS · STRENGTH=PASS (STRONG) · CLAIM=PASS (Yes)
+- **CK-06-clear-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (Yes)
+- **CK-06-fire-01**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **CK-06-fire-02**: CK=PASS · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+- **NR-01**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (No)
+- **NR-02**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (Yes)
+- **NR-03**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (Yes)
+- **WU-baseline-01**: CK=FAIL · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
+  - CK-04: expected CLEAR, got FIRES
