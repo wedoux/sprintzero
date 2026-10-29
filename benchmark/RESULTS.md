@@ -542,3 +542,26 @@ R1 onward, gold labels are written before a case is run.
 - **NR-03**: CK=PASS · STRENGTH=N/A (WEAK) · CLAIM=PASS (Yes)
 - **WU-baseline-01**: CK=FAIL · STRENGTH=PASS (WEAK) · CLAIM=PASS (No)
   - CK-04: expected CLEAR, got FIRES
+
+## R1 against v1 — summary
+
+Readouts compared: v1 baseline (runs/2026-10-26-skill-e47326f-2/, with
+runs/2026-10-26-skill-e47326f/ for the cases not re-run) and R1 final
+(runs/2026-10-29-skill-053030a-2/, with runs/2026-10-29-skill-053030a/).
+
+| Score (24 seeded fire/clear cases unless stated) | v1 | R1 |
+|---|---|---|
+| CK-ID, 28 seeded cases | 0/28 | 26/28 |
+| Claim line, 28 seeded cases | 0/28 | 28/28 |
+| Strength within gold labels, 25 cases | 25/25 | 25/25 |
+| Label-free tier score: fire not STRONG | 12/12 | 12/12 |
+| Label-free tier score: clear not WEAK | 7/12 | 4/12 |
+| Label-free tier score, total | 19/24 | 16/24 |
+
+R1 does not beat v1 on the label-free tier score. The whole gap is on clear cases:
+R1 rates honest claims on thin evidence WEAK (CK-02-clear-01, CK-02-clear-02,
+CK-05-clear-01) and says so in a separate "Claim matches its evidence: Yes" line,
+which v1 did not have. The tier score treats WEAK on a clear case as a failure, so it
+counts as a regression what R1 now treats as correct practice (see the WEAK relabels
+above). The R1 gate was set on the gold-label strength score, the claim line and the
+CK results instead; the tier score is reported here for comparison, not as the gate.
