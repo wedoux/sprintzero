@@ -3,10 +3,10 @@ id: CK-06-clear-01
 checks_expected_to_fire: []
 checks_expected_clear: [CK-06, CK-05]
 checks_expected_not_run: []
-expected_strength: [UNCERTAIN, STRONG]
+expected_strength: [WEAK, UNCERTAIN, STRONG]
 claim_honest: yes
 synthetic: true
-notes: Rewritten - v1 claimed "most" from 2 of 6 cited units. This version cites all 6 and states the exact count.
+notes: Rewritten - v1 claimed "most" from 2 of 6 cited units. This version cites all 6 and states the exact count. Relabelled 2026-10-29 by Nikos, after seeing R1's output: WEAK allowed. With 'Claim matches its evidence' now a separate line, strength describes the evidence alone, and an honest claim on thin evidence can read as WEAK.
 ---
 
 ## Belief register
