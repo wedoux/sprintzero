@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   SprintZero - Output Schema
-  Version 1.2 - May 2026 - Niko
+  Version 1.3 - October 2026 - Niko
+
+  CHANGELOG v1.3
+  - Added belief_register element: optional sibling of project_context. One
+    belief_entry per declared belief. Filled in by the user only - Agent 1
+    must never author or complete a row on their behalf.
+  - Added study_record element: optional sibling of project_context. The
+    lite R1 subset (study_name, decision_informed, questions, evidence_sources,
+    limits). Filled in by the user only, same rule as above.
+  - Structure only. Neither element is read by Agent 1/2 behaviour yet, and
+    neither is wired into the app. That lands with R1.
 
   CHANGELOG v1.2
   - Added qa_review element: appended to SprintZero_response after reframed_insight.
@@ -251,6 +261,102 @@
       </context_completeness>
 
     </project_context>
+
+    <!--
+      BELIEF REGISTER
+      Optional sibling of project_context. One row per belief, written by the
+      user before synthesis - never by the model. Each belief is tested, at
+      review time, for whether its confidence is earned by evidence or
+      borrowed from who said it. Structure only in v1.3: no element here is
+      read by Agent 1 or Agent 2 behaviour yet.
+    -->
+    <belief_register required="false" trigger="the user has declared beliefs for this project">
+
+      <belief_entry>
+
+        <id required="true">
+          <!-- B-01, B-02... -->
+        </id>
+
+        <belief required="true">
+          <!-- One sentence. -->
+        </belief>
+
+        <about required="true">
+          <!-- people | product -->
+        </about>
+
+        <confidence required="true">
+          <!-- high | low. No medium. -->
+        </confidence>
+
+        <rationale required="true">
+          <!-- Why the person believes it. -->
+        </rationale>
+
+        <source_type required="true">
+          <!-- own_experience | proxy | authority | internal_research |
+               third_party_study | analytics | media -->
+        </source_type>
+
+        <source_ref required="false">
+          <!-- Link or name of the study or report. -->
+        </source_ref>
+
+        <agreed_by_all required="true">
+          <!-- yes | no. One dissenter means no. -->
+        </agreed_by_all>
+
+        <dissent_note required="false" trigger="agreed_by_all = no">
+          <!-- Who disagrees and why. -->
+        </dissent_note>
+
+      </belief_entry>
+      <!-- Repeat belief_entry for each declared belief. -->
+
+    </belief_register>
+
+    <!--
+      STUDY RECORD
+      Optional sibling of project_context. The lite subset (R1). The full
+      record - who/what/how/why, ideal versus constrained study - arrives in
+      R3 and is out of scope here. Structure only in v1.3.
+    -->
+    <study_record required="false" trigger="the user has declared a study record for this project">
+
+      <study_name required="true">
+        <!-- Short name for the study. -->
+      </study_name>
+
+      <decision_informed required="true">
+        <!-- What decision this research is meant to inform. -->
+      </decision_informed>
+
+      <questions required="false">
+        <question>
+          <id required="true"><!-- Q-01... --></id>
+          <text required="true"></text>
+          <author required="true"></author>
+          <about required="true"><!-- people | product --></about>
+        </question>
+        <!-- Repeat question for each declared question. -->
+      </questions>
+
+      <evidence_sources required="true">
+        <!-- What was gathered: method, participant count, evidence unit
+             prefixes used (R reviews, INT interviews, SV surveys, TK tickets). -->
+      </evidence_sources>
+
+      <limits required="false">
+        <limit>
+          <component required="true"><!-- objective | sample | method | output --></component>
+          <what_was_cut required="true"></what_was_cut>
+          <cannot_claim required="true"><!-- Plain words: what we can no longer say. --></cannot_claim>
+        </limit>
+        <!-- Repeat limit for each declared constraint. -->
+      </limits>
+
+    </study_record>
 
     <!--
       PROCESS CHALLENGE

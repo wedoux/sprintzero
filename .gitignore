@@ -13,3 +13,6 @@ state/projects.json
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Internal planning docs (not for the public repo)
+docs/internal/

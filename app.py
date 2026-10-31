@@ -664,18 +664,29 @@ def ask(project_id):
 
         state.save_project(project_state)
 
+        # Read after apply_context, so the turn that completes intake reports
+        # itself as complete. Before this, that turn rendered the same "intake
+        # required" message as the first one, and a finished setup looked stuck.
+        intake = {
+            "intake_complete": state.context_is_complete(project_state),
+            "intake_missing": state.missing_context_fields(project_state),
+            "intake_context": project_state["project_context"],
+        }
+
         # qa_review is intentionally NOT present on root yet — right_pane.html
         # renders the pending QA band, which the client resolves once /qa lands.
         chat_html = render_template(
             "partials/chat_messages.html",
             root=root,
             response_type=response_type,
+            **intake,
         )
         right_pane_html = render_template(
             "partials/right_pane.html",
             root=root,
             response_type=response_type,
             qa_checks=[],
+            **intake,
         )
 
         is_synthesis = response_type in ("EVALUATION", "GAP_FLAG")
@@ -685,6 +696,7 @@ def ask(project_id):
             "right_pane_html": right_pane_html,
             "agent1_xml": ET.tostring(root, encoding="unicode") if is_synthesis else None,
             "query_id": query_id,
+            "context_complete": intake["intake_complete"],
         })
 
     return Response(

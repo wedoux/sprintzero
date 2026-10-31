@@ -1,6 +1,6 @@
 name: Probes
 
-# The eight offline probes are deterministic and need no API key - the model is
+# The nine offline probes are deterministic and need no API key - the model is
 # stubbed - so they cost nothing to run on every push. Probes that spend real
 # money (_probe_streaming, _probe_qa_latency, _probe_agent1_models,
 # _probe_phase*) are deliberately excluded and must never run here.
@@ -39,7 +39,7 @@ jobs:
           failed=0
           for p in _probe_design_tokens _probe_qa_gate _probe_signal_first_ia \
                    _probe_parse_retry _probe_projects _probe_intake \
-                   _probe_reference_data _probe_history; do
+                   _probe_reference_data _probe_history _probe_benchmark; do
             echo "::group::$p"
             if python "$p.py"; then echo "PASS $p"; else echo "::error::$p failed"; failed=1; fi
             echo "::endgroup::"
